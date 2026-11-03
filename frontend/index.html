@@ -1,0 +1,318 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Portal de Notificações por Região • SENAI FATESG</title>
+
+  <!-- Leaflet CSS para o Mapa Geoespacial -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
+  
+  <!-- Estilos Customizados do Projeto -->
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+  <!-- Top App Header -->
+  <header class="app-header">
+    <div class="logo-container">
+      <div class="logo-badge">SENAI FATESG</div>
+      <div class="logo-title">
+        <h1>Portal de Notificações</h1>
+        <span>Comunicação Comunitária por Região</span>
+      </div>
+    </div>
+    <div class="header-actions">
+      <div id="userPill" class="user-pill">
+        <!-- Renderizado dinamicamente pelo JS -->
+      </div>
+    </div>
+  </header>
+
+  <!-- Container Principal -->
+  <main class="main-content">
+
+    <!-- Barra de Demonstração / Alternador Rápido de Perfis (Ideal para Apresentação da Banca) -->
+    <div class="demo-banner">
+      <span>👥 <strong>Alternar Perfil para Demonstração:</strong></span>
+      <div class="demo-buttons">
+        <button class="btn-demo active" data-email="morador@cidadao.com" onclick="loginAs('morador@cidadao.com', '123456')">
+          👤 Lucas (Cidadão / Morador)
+        </button>
+        <button class="btn-demo" data-email="hemocentro@goias.gov.br" onclick="loginAs('hemocentro@goias.gov.br', '123456')">
+          🏥 Hemocentro (Organização)
+        </button>
+        <button class="btn-demo" data-email="marcos.eletricista@gmail.com" onclick="loginAs('marcos.eletricista@gmail.com', '123456')">
+          ⚡ Eletricista (Profissional)
+        </button>
+        <button class="btn-demo" data-email="admin@fatesg.senai.br" onclick="loginAs('admin@fatesg.senai.br', 'admin123')">
+          🛡️ Administrador (Moderação)
+        </button>
+      </div>
+    </div>
+
+    <!-- Barra de Controles Geoespaciais (Busca, Raio em KM e GPS) -->
+    <section class="controls-card">
+      <div class="search-row">
+        <div class="search-input-wrap">
+          <span class="search-icon">🔍</span>
+          <input type="text" id="searchInput" placeholder="Buscar serviços, campanhas, doações ou comércios...">
+        </div>
+      </div>
+
+      <div class="radius-control-row">
+        <div class="radius-slider-group">
+          <label for="radiusRange">Raio de Alcance:</label>
+          <input type="range" id="radiusRange" min="1" max="25" step="0.5" value="5">
+          <span id="radiusVal" class="radius-value-pill">5 km</span>
+        </div>
+
+        <button id="btnGps" class="gps-location-pill" title="Atualizar para minha coordenada real">
+          <span>📍</span> <span id="gpsText">Ponto: Setor Universitário (SENAI)</span>
+        </button>
+      </div>
+
+      <!-- Abas de Categorias -->
+      <div class="categories-tabs">
+        <button class="tab-btn active" data-cat="TODAS">🌐 Todas as Ações</button>
+        <button class="tab-btn" data-cat="SOCIAL">❤️ Projetos Sociais & Saúde</button>
+        <button class="tab-btn" data-cat="SERVICO">🔧 Serviços Locais</button>
+        <button class="tab-btn" data-cat="PROMOCAO">🏷️ Promoções de Bairro</button>
+      </div>
+    </section>
+
+    <!-- VISÃO 1: FEED DE PUBLICAÇÕES -->
+    <section id="view-feed" class="view-section active">
+      <div id="feedContainer" class="feed-grid">
+        <!-- Preenchido via app.js -->
+      </div>
+    </section>
+
+    <!-- VISÃO 2: MAPA INTERATIVO GEOESPACIAL -->
+    <section id="view-mapa" class="view-section">
+      <div style="background: white; padding: 12px 16px; border-radius: 12px; margin-bottom: 12px; border: 1px solid #e2e8f0; display:flex; justify-content:space-between; align-items:center;">
+        <div>
+          <h3 style="font-size: 1.05rem; color:#0f172a;">Mapa de Notificações e Serviços</h3>
+          <p style="font-size: 0.82rem; color:#64748b;">O círculo azul indica seu raio de alcance configurado.</p>
+        </div>
+      </div>
+      <div id="mapContainer"></div>
+    </section>
+
+    <!-- VISÃO 3: FAVORITOS -->
+    <section id="view-favoritos" class="view-section">
+      <h2 style="font-size: 1.2rem; margin-bottom: 14px; color:#0f172a;">Meus Avisos Salvos</h2>
+      <div id="favContainer" class="feed-grid">
+        <!-- Preenchido dinamicamente -->
+      </div>
+    </section>
+
+    <!-- VISÃO 4: NOVA PUBLICAÇÃO (Organização / Admin) -->
+    <section id="view-novapub" class="view-section">
+      <div class="modal-card" style="margin: 0 auto; max-width: 700px; box-shadow: var(--shadow-sm); border: 1px solid var(--border);">
+        <div class="modal-header">
+          <h3>Nova Publicação / Aviso Regional</h3>
+        </div>
+        <div class="modal-body">
+          <form id="formNewPub" onsubmit="submitNewPublication(event)">
+            <div class="form-group">
+              <label for="newPubTitulo">Título do Aviso / Serviço *</label>
+              <input type="text" id="newPubTitulo" class="form-control" placeholder="Ex: Doação de Sangue no SENAI FATESG" required>
+            </div>
+
+            <div class="form-row">
+              <div class="form-group">
+                <label for="newPubCategoria">Categoria *</label>
+                <select id="newPubCategoria" class="form-control" required>
+                  <option value="SOCIAL">Social / Saúde / Utilidade Pública</option>
+                  <option value="SERVICO">Serviço de Bairro / Autônomo</option>
+                  <option value="PROMOCAO">Promoção / Comércio Local</option>
+                </select>
+              </div>
+
+              <div class="form-group">
+                <label for="newPubWhatsapp">WhatsApp para Contato</label>
+                <input type="text" id="newPubWhatsapp" class="form-control" placeholder="(62) 99999-0000">
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label for="newPubDescricao">Descrição Completa *</label>
+              <textarea id="newPubDescricao" class="form-control" placeholder="Explique os detalhes da ação comunitária ou serviço..." required></textarea>
+            </div>
+
+            <div class="form-group">
+              <label for="newPubEndereco">Endereço Completo do Local *</label>
+              <input type="text" id="newPubEndereco" class="form-control" placeholder="Ex: Rua 227-A, Setor Leste Universitário" required>
+            </div>
+
+            <div class="form-row">
+              <div class="form-group">
+                <label for="newPubDataInicio">Data de Início *</label>
+                <input type="date" id="newPubDataInicio" class="form-control" required value="2026-11-03">
+              </div>
+
+              <div class="form-group">
+                <label for="newPubDataFim">Data de Término (Expiração) *</label>
+                <input type="date" id="newPubDataFim" class="form-control" required value="2026-11-30">
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label for="newPubImagem">URL da Foto / Imagem de Divulgação (Opcional)</label>
+              <input type="url" id="newPubImagem" class="form-control" placeholder="https://exemplo.com/foto.jpg">
+            </div>
+
+            <button type="submit" class="btn-primary" style="width: 100%; padding: 12px; font-size: 1rem; margin-top: 10px;">
+              🚀 Enviar para Aprovação da Moderação
+            </button>
+          </form>
+        </div>
+      </div>
+    </section>
+
+    <!-- VISÃO 5: AUTONOMIA DO CIDADÃO E LGPD (PERFIL) -->
+    <section id="view-perfil" class="view-section">
+      <div class="modal-card" style="margin: 0 auto; max-width: 650px; box-shadow: var(--shadow-sm); border: 1px solid var(--border);">
+        <div class="modal-header">
+          <h3>Preferências do Cidadão & Governança LGPD</h3>
+        </div>
+        <div class="modal-body">
+          <div style="background:#f8fafc; padding:14px; border-radius:8px; border:1px solid #e2e8f0; margin-bottom:18px;">
+            <div style="margin-bottom:6px;"><strong>Nome:</strong> <span id="profNome">Lucas Silva</span></div>
+            <div style="margin-bottom:6px;"><strong>E-mail:</strong> <span id="profEmail">morador@cidadao.com</span></div>
+            <div><strong>Perfil:</strong> <span id="profTipo" style="background:#e0f2fe; color:#0369a1; padding:2px 8px; border-radius:4px; font-weight:bold; font-size:0.8rem;">CIDADAO</span></div>
+          </div>
+
+          <h4 style="font-size:1rem; margin-bottom:12px; color:#0f172a;">🎯 Categorias de Interesse</h4>
+          <div style="display:flex; flex-direction:column; gap:10px; margin-bottom:20px;">
+            <label style="display:flex; align-items:center; gap:8px; cursor:pointer;">
+              <input type="checkbox" id="chkSocial" checked>
+              <span><strong>Projetos Sociais & Saúde</strong> (Doações de sangue, campanhas públicas)</span>
+            </label>
+            <label style="display:flex; align-items:center; gap:8px; cursor:pointer;">
+              <input type="checkbox" id="chkServico" checked>
+              <span><strong>Serviços Locais</strong> (Eletricistas, pedreiros, chaveiros de proximidade)</span>
+            </label>
+            <label style="display:flex; align-items:center; gap:8px; cursor:pointer;">
+              <input type="checkbox" id="chkPromocao" checked>
+              <span><strong>Promoções de Bairro</strong> (Descontos e ofertas do comércio local)</span>
+            </label>
+          </div>
+
+          <h4 style="font-size:1rem; margin-bottom:10px; color:#0f172a;">📍 Raio de Alcance Padrão</h4>
+          <div class="radius-slider-group" style="margin-bottom:20px;">
+            <input type="range" id="profRaioRange" min="1" max="25" step="1" value="5" oninput="document.getElementById('profRaioVal').innerText = this.value + ' km'">
+            <span id="profRaioVal" class="radius-value-pill">5 km</span>
+          </div>
+
+          <h4 style="font-size:1rem; margin-bottom:6px; color:#0f172a;">🛡️ Limite Diário Anti-Fadiga (Anti-Spam)</h4>
+          <p style="font-size:0.82rem; color:#64748b; margin-bottom:10px;">Defina o teto máximo de notificações push que você aceita receber por dia.</p>
+          <div class="form-group">
+            <select id="profCotaDiaria" class="form-control">
+              <option value="3">Até 3 notificações por dia</option>
+              <option value="5" selected>Até 5 notificações por dia (Recomendado)</option>
+              <option value="10">Até 10 notificações por dia</option>
+              <option value="20">Sem limite estrito (até 20 por dia)</option>
+            </select>
+          </div>
+
+          <div id="quotaStats"></div>
+
+          <button onclick="saveProfilePreferences()" class="btn-primary" style="width:100%; padding:12px; margin-top:16px;">
+            Salvar Minhas Preferências
+          </button>
+
+          <!-- Seção de Direitos do Titular (LGPD) -->
+          <div style="margin-top:30px; border-top:1px solid #e2e8f0; padding-top:18px;">
+            <h4 style="color:#b91c1c; font-size:0.95rem; margin-bottom:6px;">🔒 Conformidade LGPD (Lei Geral de Proteção de Dados)</h4>
+            <p style="font-size:0.82rem; color:#64748b; margin-bottom:12px;">
+              Em atendimento ao Art. 18 da LGPD, você pode exercer o direito de eliminação completa e irrevogável de todos os seus dados cadastrais, histórico de notificações e preferências de nossa plataforma.
+            </p>
+            <button onclick="deleteAccountLGPD()" class="btn-reject" style="width:100%; padding:10px; font-size:0.88rem;">
+              ⚠️ Excluir Minha Conta e Meus Dados Definitivamente
+            </button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- VISÃO 6: PAINEL DE MODERAÇÃO (ADMINISTRADOR) -->
+    <section id="view-moderacao" class="view-section">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
+        <h2 style="font-size: 1.25rem; color:#0f172a;">Fila de Moderação Prévia de Avisos</h2>
+        <button onclick="loadModerationData()" class="btn-outline">🔄 Atualizar Fila</button>
+      </div>
+
+      <div class="mod-table-wrap">
+        <table class="mod-table">
+          <thead>
+            <tr>
+              <th>Publicação</th>
+              <th>Autor / Entidade</th>
+              <th>Data Envio</th>
+              <th>Status</th>
+              <th>Ações</th>
+            </tr>
+          </thead>
+          <tbody id="modPendingTable">
+            <!-- Linhas preenchidas dinamicamente -->
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- Modal de Detalhes da Publicação -->
+  <div id="detailsModal" class="modal-overlay">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h3>Detalhes da Ação Comunitária</h3>
+        <button class="modal-close" onclick="closeDetailsModal()">&times;</button>
+      </div>
+      <div id="detailsModalBody" class="modal-body">
+        <!-- Renderizado dinamicamente -->
+      </div>
+    </div>
+  </div>
+
+  <!-- Bottom Navigation Bar (Design Mobile Primeiro) -->
+  <nav class="bottom-nav">
+    <button class="nav-item active" data-view="feed">
+      <svg fill="currentColor" viewBox="0 0 24 24"><path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/></svg>
+      Feed
+    </button>
+    <button class="nav-item" data-view="mapa">
+      <svg fill="currentColor" viewBox="0 0 24 24"><path d="M20.5 3l-.16.03L15 5.1 9 3 3.36 4.9c-.21.07-.36.25-.36.48V20.5c0 .28.22.5.5.5l.16-.03L9 18.9l6 2.1 5.64-1.9c.21-.07.36-.25.36-.48V3.5c0-.28-.22-.5-.5-.5zM15 19l-6-2.11V5l6 2.11V19z"/></svg>
+      Mapa
+    </button>
+    <button class="nav-item" data-view="favoritos">
+      <svg fill="currentColor" viewBox="0 0 24 24"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>
+      Favoritos
+    </button>
+    <button id="navItemNovaPub" class="nav-item" data-view="novapub" style="display:none;">
+      <svg fill="currentColor" viewBox="0 0 24 24"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>
+      Publicar
+    </button>
+    <button id="navItemModeracao" class="nav-item" data-view="moderacao" style="display:none;">
+      <svg fill="currentColor" viewBox="0 0 24 24"><path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4zm-2 16l-4-4 1.41-1.41L10 14.17l6.59-6.59L18 9l-8 8z"/></svg>
+      Moderação
+    </button>
+    <button class="nav-item" data-view="perfil">
+      <svg fill="currentColor" viewBox="0 0 24 24"><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg>
+      Perfil / LGPD
+    </button>
+  </nav>
+
+  <!-- Container de Mensagens Toast -->
+  <div id="toastContainer" class="toast-container"></div>
+
+  <!-- Scripts -->
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+  <!-- Socket.io Client (auto-servido pelo backend) -->
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
+

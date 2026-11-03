@@ -1,0 +1,17 @@
+services:
+  database:
+    image: postgis/postgis:16-3.4
+    container_name: portal_notificacoes_db
+    restart: always
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-1234}
+      POSTGRES_DB: ${DB_NAME:-portal_notificacoes}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+volumes:
+  postgres_data:
+

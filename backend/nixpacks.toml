@@ -1,0 +1,14 @@
+# Arquivo de configuração para o Railway
+# O Railway usa Nixpacks para detectar automaticamente o projeto Node.js
+
+[phases.setup]
+nixPkgs = ["nodejs_20"]
+
+[phases.install]
+cmds = ["npm install"]
+
+[phases.build]
+cmds = ["npm run build", "npm run migrate", "npm run seed"]
+
+[start]
+cmd = "node dist/server.js"
