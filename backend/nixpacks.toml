@@ -12,3 +12,4 @@ cmds = ["npm run build", "npm run migrate", "npm run seed"]
 
 [start]
 cmd = "node dist/server.js"
+
