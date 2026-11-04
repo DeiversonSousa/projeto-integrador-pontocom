@@ -2,7 +2,7 @@
     "name": "raiz",
     "private": true,
     "scripts": {
-        "build": "cd backend && npm install",
+        "build": "cd backend && npm install && npm run build",
         "start": "cd backend && npm start"
     }
 }
