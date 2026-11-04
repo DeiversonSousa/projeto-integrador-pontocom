@@ -5,7 +5,7 @@
     "buildCommand": "cd backend && npm install && npm run build"
   },
   "deploy": {
-    "startCommand": "cd backend && node dist/server.js",
+    "startCommand": "cd backend && node dist/database/migrate.js && node dist/server.js",
     "preDeployCommand": ["cd backend && npm run migrate && npm run seed"],
     "restartPolicyType": "ON_FAILURE",
     "restartPolicyMaxRetries": 3,
