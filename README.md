@@ -2,7 +2,7 @@
 > **Projeto Integrador • SENAI FATESG**  
 > *Comunicação comunitária, serviços locais e ações de utilidade pública com geolocalização dinâmica e controle do cidadão.*
 
----
+-----
 
 ## 📖 Sobre o Projeto
 
