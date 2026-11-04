@@ -3,6 +3,6 @@
     "private": true,
     "scripts": {
         "build": "cd backend && npm install && npm run build",
-        "start": "cd backend && npm start"
+        "start": "cd backend && node dist/database/migrate.js && node dist/database/seed.js && npm start"
     }
 }
