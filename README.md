@@ -6,32 +6,36 @@
 
 ## 📖 Sobre o Projeto
 
-O **Portal de Notificações por Região** foi concebido e implementado no âmbito do **Projeto Integrador do SENAI FATESG** para resolver o problema do ruído digital nas grandes redes sociais, conectando cidadãos a ações de utilidade pública (como doações de sangue e vacinação), comércios de bairro e serviços autônomos de proximidade.
+O **Portal de Notificações por Região** foi concebido e implementado no âmbito do **Projeto Integrador do SENAI FATESG** para resolver o problema do ruído digital nas redes sociais convencionais, conectando cidadãos a ações de utilidade pública (como doações de sangue e vacinação), comércios de proximidade e prestadores de serviços locais.
 
 ### 🌟 Pilares e Diferenciais da Solução
 1. **📍 Geolocalização Dinâmica**:
-   * O morador define o raio de alcance (ex.: 5 km) através de um slider contínuo.
-   * Cálculo de distância em tempo real (fórmula Haversine integrada no banco de dados espacial).
-   * Visualização integrada tanto em formato de **Feed de Avisos** quanto em **Mapa Interativo (Pins e raio)**.
+   * O morador define o raio de alcance (ex.: 5 km) através de um slider contínuo ou atalhos rápidos (1 km a 20 km).
+   * Cálculo de distância em tempo real (fórmula Haversine integrada no banco de dados espacial PostgreSQL).
+   * Visualização integrada tanto em formato de **Feed de Avisos** quanto em **Mapa Interativo (Leaflet.js)** com pinos coloridos por categoria e radar do cidadão.
 2. **🛡️ Proteção Anti-Spam (Controle de Fadiga)**:
    * Filtro estrito de categorias (*Serviços Locais, Promoções de Bairro e Ações Sociais*).
-   * Definição de **cota diária de notificações** (o morador escolhe receber até 3, 5 ou 10 notificações por dia, impedindo sobrecarga).
+   * Definição de **cota diária de notificações** com indicador visual de consumo em tempo real, impedindo sobrecarga de mensagens.
 3. **⚖️ Conformidade Rigorosa com a LGPD**:
-   * Transparência no uso de dados e permissão explícita de localização.
-   * Botão nativo e funcional de **"Excluir Minha Conta e Meus Dados"** (Artigo 18 da Lei Geral de Proteção de Dados - Direito à Eliminação).
-4. **🏛️ Moderação Prévia e Denúncias**:
-   * Organizações submetem publicações que entram em uma fila `PENDENTE`.
-   * Administradores avaliam e aprovam/reprovam com justificativa.
-   * Moradores podem denunciar postagens impróprias para análise do moderador.
+   * Transparência no uso de dados e permissão explícita de geolocalização.
+   * Funcionalidade nativa de **"Excluir Minha Conta e Meus Dados"** (Artigo 18 da Lei Federal nº 13.709/2018 - Direito à Eliminação).
+4. **🏛️ Moderação Prévia e Denúncias Comunitárias**:
+   * Publicações de organizações passam por uma fila `PENDENTE` antes da veiculação.
+   * Administradores aprovam (disparando notificações aos moradores da região) ou reprovam com justificativa orientadora.
+   * Cidadãos podem denunciar postagens impróprias, permitindo à moderação suspender imediatamente o aviso e arquivar a ocorrência.
+5. **📲 Tempo Real & Multiplataforma**:
+   * Comunicação bidirecional via **WebSockets (Socket.io)** com notificações push visuais e sonoras (*Web Audio API*).
+   * **Design Responsivo Híbrido**: navegação integrada no cabeçalho em telas desktop e barra inferior (*bottom navigation*) adaptativa para smartphones.
 
 ---
 
 ## 🛠️ Arquitetura e Tecnologias
 
-* **Frontend**: HTML5, CSS3 moderno com design responsivo *mobile-first*, JavaScript ES6+ e **Leaflet.js** para renderização de mapas interativos.
-* **Backend**: **Node.js** com **TypeScript**, **Express** e autenticação segura com tokens **JWT** e criptografia de senhas com **Bcrypt**.
-* **Banco de Dados**: **PostgreSQL** com suporte a extensões espaciais e função nativa em PL/pgSQL `calcular_distancia_km()` para consultas georreferenciadas de alto desempenho.
-* **Infraestrutura**: Configuração pronta para execução nativa ou via **Docker / Docker Compose**.
+* **Frontend**: HTML5 semântico, CSS3 moderno (*mobile-first*, *custom properties*, sombras e animações), JavaScript ES6+ modular e **Leaflet.js** para mapas geoespaciais.
+* **Backend**: **Node.js** com **TypeScript**, **Express**, autenticação segura via **JWT** e criptografia de senhas com **Bcrypt**.
+* **Tempo Real**: **Socket.io** com salas segmentadas por usuário e transmissões de atualização global.
+* **Banco de Dados**: **PostgreSQL** com suporte a extensões espaciais e função nativa em PL/pgSQL `calcular_distancia_km()` para alta performance em buscas de proximidade.
+* **Infraestrutura**: Configuração pronta para execução nativa, containers via **Docker Compose** e deploy em nuvem no **Railway**.
 
 ---
 
@@ -56,12 +60,12 @@ npm run seed
 ```bash
 npm run dev
 ```
-ou pelo executável na raiz:
+ou utilizando o executável na raiz do projeto:
 ```bash
 iniciar.bat
 ```
 
-Acesse no navegador:
+Acesse no navegador:  
 👉 **[http://localhost:3001](http://localhost:3001)**
 
 ---
@@ -72,18 +76,18 @@ Para facilitar a apresentação perante a banca avaliadora, a aplicação possui
 
 | Perfil | E-mail | Senha | Função / O que testar |
 | :--- | :--- | :--- | :--- |
-| **Cidadão / Morador** | `morador@cidadao.com` | `123456` | Navegar no feed georreferenciado, alterar o raio no slider, visualizar o mapa, favoritar ações, salvar preferências e testar exclusão LGPD. |
-| **Organização (Hemocentro)** | `hemocentro@goias.gov.br` | `123456` | Cadastrar campanhas de doação de sangue e ações sociais com período de vigência. |
-| **Profissional Autônomo** | `marcos.eletricista@gmail.com` | `123456` | Publicar serviços de elétrica residencial para moradores no raio de atendimento. |
-| **Administrador (Moderação)** | `admin@fatesg.senai.br` | `admin123` | Acessar a aba **Moderação**, aprovar publicações pendentes (disparando notificações aos moradores) ou reprovar com justificativa. |
+| **Cidadão / Morador** | `morador@cidadao.com` | `123456` | Navegar no feed georreferenciado, alterar raio no slider, visualizar mapa interativo, favoritar avisos, salvar preferências e testar exclusão LGPD. |
+| **Organização (Hemocentro)** | `hemocentro@goias.gov.br` | `123456` | Cadastrar campanhas de doação de sangue e ações sociais com período de vigência e fotos. |
+| **Profissional Autônomo** | `marcos.eletricista@gmail.com` | `123456` | Publicar serviços de elétrica residencial para moradores no raio de proximidade. |
+| **Administrador (Moderação)** | `admin@fatesg.senai.br` | `admin123` | Acessar o painel **Moderação**, aprovar/reprovar publicações pendentes e analisar denúncias comunitárias suspendendo avisos irregulares. |
 
 ---
 
-## 📱 Telas Implementadas (Mapeamento dos Slides)
+## 📱 Telas e Módulos Implementados
 
-* **Telas 1 e 2 (Acesso e Feed Principal)**: Filtros por categoria, cards georreferenciados com badges coloridas (*Social, Serviço, Promoção*), cálculo de distância dinâmica e busca textual.
-* **Tela 3 (Detalhes da Ação)**: Exibição da campanha de doação de sangue (Hemocentro & SENAI FATESG), rota GPS ("Como Chegar" via Google Maps), link direto para WhatsApp e botão de denúncia.
-* **Tela 4 (Cadastro de Publicação)**: Formulário para organizações definirem vigência, fotos, categoria e contato.
-* **Tela 5 (Perfil, Autonomia e LGPD)**: Configuração de interesses, teto diário de notificações, indicador de cota diária anti-spam e exclusão irrevogável de dados.
-* **Painel Administrativo**: Gestão de publicações pendentes e denúncias comunitárias.
-
+* **Feed Principal Georreferenciado**: Filtros por categoria, cards dinâmicos com badges coloridas (*Social, Serviço, Promoção*), cálculo dinâmico de distância em KM e busca textual em tempo real.
+* **Mapa Geoespacial Interativo**: Pins coloridos por categoria, indicador radar do cidadão, círculo de cobertura e atalho para centralização.
+* **Detalhes da Ação Comunitária**: Exibição da campanha, rota GPS ("Como Chegar" via Google Maps), link direto para WhatsApp, compartilhamento rápido e botão de denúncia.
+* **Cadastro de Avisos & Serviços**: Formulário com validações de período de vigência, categoria, contato e prévia instantânea de imagem.
+* **Perfil, Autonomia e LGPD**: Configuração de interesses, teto diário de notificações, barra de consumo da cota anti-spam e eliminação definitiva de dados pessoais.
+* **Painel de Moderação Comunitária**: Gestão com sub-abas para aprovações prévias e denúncias comunitárias com suspensão imediata.
