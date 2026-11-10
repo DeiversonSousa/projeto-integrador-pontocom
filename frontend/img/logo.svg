@@ -1,0 +1,76 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 80" width="100%" height="100%">
+  <defs>
+    <linearGradient id="logoBgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#003580" />
+      <stop offset="100%" stop-color="#0066eb" />
+    </linearGradient>
+
+    <linearGradient id="comTextGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#38bdf8" />
+      <stop offset="100%" stop-color="#22d3ee" />
+    </linearGradient>
+
+    <linearGradient id="accentDotGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#00f2fe" />
+      <stop offset="100%" stop-color="#4facfe" />
+    </linearGradient>
+
+    <filter id="iconGlow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="2" stdDeviation="3" flood-color="#000000" flood-opacity="0.25" />
+    </filter>
+  </defs>
+
+  <!-- Grupo do Ícone / Símbolo -->
+  <g transform="translate(6, 6)" filter="url(#iconGlow)">
+    <!-- Fundo Squircle do Ícone -->
+    <rect width="68" height="68" rx="18" fill="url(#logoBgGrad)" />
+
+    <!-- Onda sutil de sinal -->
+    <circle cx="34" cy="30" r="22" fill="none" stroke="#ffffff" stroke-opacity="0.25" stroke-width="1.8" />
+    <circle cx="34" cy="30" r="16" fill="none" stroke="#38bdf8" stroke-opacity="0.4" stroke-width="1.5" />
+
+    <!-- Pin de Localização -->
+    <path d="M34 11 C22.5 11 13 20.5 13 32 C13 45.5 30.5 59 32.5 60.5 C33.4 61.2 34.6 61.2 35.5 60.5 C37.5 59 55 45.5 55 32 C55 20.5 45.5 11 34 11 Z" 
+          fill="#ffffff" />
+
+    <!-- Núcleo interno do Pin -->
+    <circle cx="34" cy="30" r="8.5" fill="url(#logoBgGrad)" />
+
+    <!-- Ponto Central Neon -->
+    <circle cx="34" cy="30" r="4" fill="url(#accentDotGrad)" />
+    
+    <!-- Ponto de Conexão Superior -->
+    <circle cx="48" cy="16" r="3" fill="#22d3ee" />
+  </g>
+
+  <!-- Tipografia do Nome: PontoCom -->
+  <g transform="translate(86, 42)">
+    <!-- Texto "Ponto" -->
+    <text font-family="'Inter', -apple-system, BlinkMacSystemFont, sans-serif" 
+          font-size="33" 
+          font-weight="800" 
+          fill="#ffffff" 
+          letter-spacing="-0.8">Ponto</text>
+
+    <!-- Texto "Com" -->
+    <text x="96" 
+          font-family="'Inter', -apple-system, BlinkMacSystemFont, sans-serif" 
+          font-size="33" 
+          font-weight="800" 
+          fill="url(#comTextGrad)" 
+          letter-spacing="-0.8">Com</text>
+
+    <!-- Ponto de destaque no final do nome -->
+    <circle cx="178" cy="-5" r="4.5" fill="#22d3ee" />
+  </g>
+
+  <!-- Tagline / Subtítulo Institucional -->
+  <g transform="translate(87, 60)">
+    <text font-family="'Inter', -apple-system, BlinkMacSystemFont, sans-serif" 
+          font-size="9.5" 
+          font-weight="600" 
+          fill="#e0f2fe" 
+          letter-spacing="1.2" 
+          opacity="0.9">NOTIFICAÇÕES POR REGIÃO</text>
+  </g>
+</svg>

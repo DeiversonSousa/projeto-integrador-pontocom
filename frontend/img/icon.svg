@@ -1,0 +1,55 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="100%" height="100%">
+  <defs>
+    <!-- Gradiente de fundo sofisticado -->
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#003580" />
+      <stop offset="50%" stop-color="#0052cc" />
+      <stop offset="100%" stop-color="#00a3ff" />
+    </linearGradient>
+
+    <!-- Gradiente do Ponto / Pulso Central -->
+    <linearGradient id="pulseGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#00f2fe" />
+      <stop offset="100%" stop-color="#4facfe" />
+    </linearGradient>
+
+    <!-- Gradiente do Pin -->
+    <linearGradient id="pinGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#ffffff" />
+      <stop offset="100%" stop-color="#f0f7ff" />
+    </linearGradient>
+
+    <!-- Sombra suave para profundidade -->
+    <filter id="dropShadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="12" stdDeviation="16" flood-color="#002255" flood-opacity="0.35" />
+    </filter>
+    
+    <filter id="glow" x="-30%" y="-30%" width="160%" height="160%">
+      <feGaussianBlur stdDeviation="8" result="blur" />
+      <feComposite in="SourceGraphic" in2="blur" operator="over" />
+    </filter>
+  </defs>
+
+  <!-- Fundo com cantos arredondados (Squircle / App Icon) -->
+  <rect width="512" height="512" rx="128" fill="url(#bgGrad)" />
+
+  <!-- Ondas concêntricas de transmissão comunitária ("Com") -->
+  <circle cx="256" cy="226" r="160" fill="none" stroke="#ffffff" stroke-opacity="0.12" stroke-width="6" stroke-dasharray="12 10" />
+  <circle cx="256" cy="226" r="125" fill="none" stroke="#ffffff" stroke-opacity="0.22" stroke-width="5" />
+  <circle cx="256" cy="226" r="90" fill="none" stroke="#00f2fe" stroke-opacity="0.35" stroke-width="4" filter="url(#glow)" />
+
+  <!-- Corpo do Pin Geoespacial ("Ponto") com sombra -->
+  <path d="M256 70 C170 70 100 140 100 226 C100 326 230 426 244 437 C251 442 261 442 268 437 C282 426 412 326 412 226 C412 140 342 70 256 70 Z" 
+        fill="url(#pinGrad)" 
+        filter="url(#dropShadow)" />
+
+  <!-- Núcleo interno do Pin (Círculo de Conexão) -->
+  <circle cx="256" cy="226" r="62" fill="url(#bgGrad)" />
+
+  <!-- O "PONTO" central pulsante com brilho (Radar / Sinal) -->
+  <circle cx="256" cy="226" r="28" fill="url(#pulseGrad)" filter="url(#glow)" />
+  <circle cx="256" cy="226" r="14" fill="#ffffff" />
+
+  <!-- Detalhe moderno de sinal no topo direito -->
+  <circle cx="360" cy="115" r="18" fill="#00f2fe" filter="url(#glow)" />
+</svg>

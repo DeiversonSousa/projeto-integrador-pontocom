@@ -1,5 +1,5 @@
 // ==========================================================================
-// PORTAL DE NOTIFICAÇÕES POR REGIÃO • SENAI FATESG
+// PONTOCOM • COMUNICAÇÃO COMUNITÁRIA POR REGIÃO • SENAI FATESG
 // JavaScript Modular, Reativo e Responsivo
 // ==========================================================================
 
@@ -157,9 +157,9 @@ function mostrarNotificacaoPush(notif) {
 
   if (window.Notification && Notification.permission === 'granted') {
     try {
-      new Notification(`${icone} Portal de Notificações • SENAI FATESG`, {
+      new Notification(`${icone} PontoCom • SENAI FATESG`, {
         body: `${notif.titulo} — a ${notif.distancia_km} km de você`,
-        icon: 'https://cdn-icons-png.flaticon.com/512/3602/3602145.png'
+        icon: '/img/icon.svg'
       });
     } catch {
       // Ignora erro nativo
@@ -531,8 +531,8 @@ function renderPublicationCard(pub) {
 function sharePublication(id, encodedTitulo) {
   const titulo = decodeURIComponent(encodedTitulo);
   const shareData = {
-    title: `${titulo} • Portal de Notificações`,
-    text: `Confira este aviso na nossa região: ${titulo}`,
+    title: `${titulo} • PontoCom`,
+    text: `Confira este aviso no PontoCom da nossa região: ${titulo}`,
     url: `${window.location.origin}/#pub-${id}`
   };
 

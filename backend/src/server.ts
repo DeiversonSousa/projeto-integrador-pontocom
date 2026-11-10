@@ -37,7 +37,7 @@ app.get('/api/health', async (_req, res) => {
     const dbRes = await query('SELECT NOW() as current_time, COUNT(*)::int as total_publicacoes FROM publicacoes');
     res.json({
       status: 'UP',
-      projeto: 'Portal de Notificações por Região',
+      projeto: 'PontoCom - Notificações por Região',
       instituicao: 'SENAI FATESG - Projeto Integrador',
       horarioServidor: dbRes.rows[0].current_time,
       totalPublicacoes: dbRes.rows[0].total_publicacoes,
@@ -89,7 +89,7 @@ app.use((err: any, _req: express.Request, res: express.Response, _next: express.
 // Iniciar servidor via httpServer para suportar WebSockets
 httpServer.listen(PORT, () => {
   console.log(`=======================================================`);
-  console.log(`🚀 Portal de Notificações - SENAI FATESG rodando!`);
+  console.log(`🚀 PontoCom - SENAI FATESG rodando!`);
   console.log(`📡 API REST:       http://localhost:${PORT}/api`);
   console.log(`💻 Frontend Web:   http://localhost:${PORT}`);
   console.log(`❤️ Healthcheck:    http://localhost:${PORT}/api/health`);

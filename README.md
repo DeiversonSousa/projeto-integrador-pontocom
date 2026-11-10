@@ -1,12 +1,16 @@
-# 📢 Portal de Notificações por Região
+# 📍 PontoCom • Notificações Comunitárias por Região
 > **Projeto Integrador • SENAI FATESG**  
 > *Comunicação comunitária, serviços locais e ações de utilidade pública com geolocalização dinâmica e controle do cidadão.*
+
+<p align="center">
+  <img src="frontend/img/logo.svg" alt="PontoCom Logo" width="340">
+</p>
 
 -----
 
 ## 📖 Sobre o Projeto
 
-O **Portal de Notificações por Região** foi concebido e implementado no âmbito do **Projeto Integrador do SENAI FATESG** para resolver o problema do ruído digital nas redes sociais convencionais, conectando cidadãos a ações de utilidade pública (como doações de sangue e vacinação), comércios de proximidade e prestadores de serviços locais.
+O **PontoCom** foi concebido e implementado no âmbito do **Projeto Integrador do SENAI FATESG** para resolver o problema do ruído digital nas redes sociais convencionais, conectando cidadãos a ações de utilidade pública (como doações de sangue e vacinação), comércios de proximidade e prestadores de serviços locais.
 
 ### 🌟 Pilares e Diferenciais da Solução
 1. **📍 Geolocalização Dinâmica**:

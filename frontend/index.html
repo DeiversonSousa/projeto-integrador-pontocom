@@ -4,7 +4,10 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <meta name="theme-color" content="#004085">
-  <title>Portal de Notificações por Região • SENAI FATESG</title>
+  <title>PontoCom • Notificações Comunitárias por Região | SENAI FATESG</title>
+
+  <!-- Favicon do PontoCom -->
+  <link rel="icon" type="image/svg+xml" href="img/icon.svg">
 
   <!-- Leaflet CSS para o Mapa Geoespacial -->
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
@@ -23,10 +26,13 @@
   <header class="app-header">
     <div class="header-inner">
       <div class="logo-container" onclick="switchView('feed')">
-        <div class="logo-badge">SENAI FATESG</div>
+        <img src="img/icon.svg" alt="Logo PontoCom" class="brand-logo-img">
         <div class="logo-title">
-          <h1>Portal de Notificações</h1>
-          <span>Comunicação Comunitária por Região</span>
+          <div class="logo-main-row">
+            <h1>Ponto<span class="logo-accent">Com</span></h1>
+            <span class="logo-badge">SENAI FATESG</span>
+          </div>
+          <span class="logo-tagline">Comunicação Comunitária por Região</span>
         </div>
       </div>
 
