@@ -7,9 +7,11 @@
     "dev": "tsx watch src/server.ts",
     "build": "tsc",
     "start": "node dist/server.js",
-    "start:prod": "npm run build && npm run migrate && npm run seed && node dist/server.js",
+    "start:prod": "node dist/database/migrate.js && node dist/database/seed.js && node dist/server.js",
     "migrate": "tsx src/database/migrate.ts",
-    "seed": "tsx src/database/seed.ts"
+    "seed": "tsx src/database/seed.ts",
+    "migrate:dist": "node dist/database/migrate.js",
+    "seed:dist": "node dist/database/seed.js"
   },
   "engines": {
     "node": ">=20.0.0"

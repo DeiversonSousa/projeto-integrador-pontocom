@@ -2,6 +2,7 @@ import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
 import path from 'path';
+import fs from 'fs';
 import http from 'http';
 
 import authRoutes from './routes/authRoutes';
@@ -24,7 +25,7 @@ SocketService.init(httpServer);
 
 // Middlewares globais
 app.use(cors({
-  origin: '*', // Em produção, trocar pelo domínio real
+  origin: '*', // Em produção, pode ser restrito ao domínio oficial
   methods: ['GET', 'POST', 'PUT', 'DELETE'],
   allowedHeaders: ['Content-Type', 'Authorization']
 }));
@@ -53,18 +54,39 @@ app.use('/api/usuarios', userRoutes);
 app.use('/api/publicacoes', publicationRoutes);
 app.use('/api/moderacao', moderationRoutes);
 
+// Resolução robusta do diretório do frontend
+const candidateFrontendPaths = [
+  path.resolve(__dirname, '../../frontend'),
+  path.resolve(__dirname, '../frontend'),
+  path.resolve(process.cwd(), 'frontend'),
+  path.resolve(process.cwd(), '../frontend')
+];
+const frontendPath = candidateFrontendPaths.find(p => fs.existsSync(p)) || candidateFrontendPaths[0];
+
 // Servir frontend estático integrado
-const frontendPath = path.resolve(__dirname, '../../frontend');
 app.use(express.static(frontendPath));
 
 app.get('*', (req, res, next) => {
   if (req.path.startsWith('/api')) {
     return next();
   }
-  res.sendFile(path.join(frontendPath, 'index.html'));
+  const indexPath = path.join(frontendPath, 'index.html');
+  if (fs.existsSync(indexPath)) {
+    res.sendFile(indexPath);
+  } else {
+    res.status(404).send('Frontend não encontrado no caminho configurado.');
+  }
 });
 
-// Iniciar servidor via httpServer (não app.listen) para suportar WebSockets
+// Middleware global de tratamento de erros
+app.use((err: any, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
+  console.error('⚠️ Erro não tratado na API:', err);
+  res.status(err.status || 500).json({
+    error: err.message || 'Erro interno no servidor.'
+  });
+});
+
+// Iniciar servidor via httpServer para suportar WebSockets
 httpServer.listen(PORT, () => {
   console.log(`=======================================================`);
   console.log(`🚀 Portal de Notificações - SENAI FATESG rodando!`);
@@ -73,5 +95,6 @@ httpServer.listen(PORT, () => {
   console.log(`❤️ Healthcheck:    http://localhost:${PORT}/api/health`);
   console.log(`🔌 WebSocket:      Socket.io ativo`);
   console.log(`🌍 Ambiente:       ${process.env.NODE_ENV || 'development'}`);
+  console.log(`📂 Frontend Path:  ${frontendPath}`);
   console.log(`=======================================================`);
 });
