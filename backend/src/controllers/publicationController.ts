@@ -14,6 +14,12 @@ export class PublicationController {
       let lat = req.query.lat ? parseFloat(req.query.lat as string) : (req.user?.latitude || -16.6799);
       let lon = req.query.lon ? parseFloat(req.query.lon as string) : (req.user?.longitude || -49.2550);
       let raio = req.query.raio ? parseFloat(req.query.raio as string) : (req.user?.raio_alcance_km || 10.0);
+
+      // Validação defensiva contra NaN
+      if (isNaN(lat)) lat = -16.6799;
+      if (isNaN(lon)) lon = -49.2550;
+      if (isNaN(raio) || raio <= 0) raio = 10.0;
+
       const categoria = req.query.categoria as string;
       const busca = req.query.busca as string;
 
@@ -80,8 +86,10 @@ export class PublicationController {
   static async getById(req: AuthRequest, res: Response): Promise<void> {
     try {
       const { id } = req.params;
-      const lat = req.query.lat ? parseFloat(req.query.lat as string) : (req.user?.latitude || -16.6799);
-      const lon = req.query.lon ? parseFloat(req.query.lon as string) : (req.user?.longitude || -49.2550);
+      let lat = req.query.lat ? parseFloat(req.query.lat as string) : (req.user?.latitude || -16.6799);
+      let lon = req.query.lon ? parseFloat(req.query.lon as string) : (req.user?.longitude || -49.2550);
+      if (isNaN(lat)) lat = -16.6799;
+      if (isNaN(lon)) lon = -49.2550;
 
       const result = await query(`
         SELECT 
@@ -150,6 +158,13 @@ export class PublicationController {
 
       if (!titulo || !descricao || !categoria_chave || !endereco || latitude === undefined || longitude === undefined || !data_inicio || !data_fim) {
         res.status(400).json({ error: 'Preencha todos os campos obrigatórios (título, descrição, categoria, endereço, coordenadas e período de vigência).' });
+        return;
+      }
+
+      const latNum = parseFloat(latitude);
+      const lonNum = parseFloat(longitude);
+      if (isNaN(latNum) || isNaN(lonNum)) {
+        res.status(400).json({ error: 'Coordenadas geográficas informadas são inválidas.' });
         return;
       }
 
