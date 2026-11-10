@@ -402,12 +402,24 @@
     <section id="view-moderacao" class="view-section">
       <div class="section-title-bar">
         <div>
-          <h2>Fila de Moderação Prévia de Avisos</h2>
-          <p>Valide publicações submetidas por organizações e autônomos antes da veiculação.</p>
+          <h2>Painel de Moderação & Gestão Comunitária</h2>
+          <p>Valide publicações submetidas e analise denúncias registradas pelos cidadãos.</p>
         </div>
         <button onclick="loadModerationData()" class="btn-refresh">
           <svg fill="currentColor" viewBox="0 0 24 24"><path d="M17.65 6.35C16.2 4.9 14.21 4 12 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08c-.82 2.33-3.04 4-5.65 4-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"/></svg>
-          <span>Atualizar Fila</span>
+          <span>Atualizar Dados</span>
+        </button>
+      </div>
+
+      <!-- Abas Internas da Moderação (Pendentes e Denúncias) -->
+      <div class="mod-subtabs">
+        <button class="mod-tab-btn active" id="tabModPendentes" onclick="switchModTab('pendentes')">
+          <span>⏳ Publicações Pendentes</span>
+          <span id="badgeModPendentes" class="mod-tab-count">0</span>
+        </button>
+        <button class="mod-tab-btn" id="tabModDenuncias" onclick="switchModTab('denuncias')">
+          <span>🚩 Denúncias Recebidas</span>
+          <span id="badgeModDenuncias" class="mod-tab-count">0</span>
         </button>
       </div>
 
@@ -448,6 +460,63 @@
           <button id="dialogBtnCancel" class="btn-outline" onclick="closeDialogModal()">Cancelar</button>
           <button id="dialogBtnConfirm" class="btn-primary">Confirmar</button>
         </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal de Login / Cadastro de Novo Usuário -->
+  <div id="authModal" class="modal-overlay" onclick="handleModalOverlayClick(event, 'authModal')">
+    <div class="modal-card modal-sm">
+      <div class="modal-header">
+        <h3 id="authModalTitle">Acesso à Plataforma</h3>
+        <button class="modal-close" onclick="closeAuthModal()">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div class="auth-tabs">
+          <button class="auth-tab-btn active" id="tabAuthLogin" onclick="switchAuthTab('login')">Entrar</button>
+          <button class="auth-tab-btn" id="tabAuthRegister" onclick="switchAuthTab('register')">Cadastrar</button>
+        </div>
+
+        <!-- Formulário de Login -->
+        <form id="formLogin" onsubmit="submitCustomLogin(event)">
+          <div class="form-group">
+            <label for="loginEmail">E-mail</label>
+            <input type="email" id="loginEmail" class="form-control" placeholder="seu@email.com" required>
+          </div>
+          <div class="form-group">
+            <label for="loginSenha">Senha</label>
+            <input type="password" id="loginSenha" class="form-control" placeholder="••••••••" required>
+          </div>
+          <button type="submit" class="btn-primary btn-block btn-lg" style="margin-top:12px;">
+            Acessar Conta
+          </button>
+        </form>
+
+        <!-- Formulário de Cadastro -->
+        <form id="formRegister" onsubmit="submitCustomRegister(event)" style="display:none;">
+          <div class="form-group">
+            <label for="regNome">Nome Completo / Entidade *</label>
+            <input type="text" id="regNome" class="form-control" placeholder="Ex: Roberto Alves ou Associação de Moradores" required>
+          </div>
+          <div class="form-group">
+            <label for="regEmail">E-mail *</label>
+            <input type="email" id="regEmail" class="form-control" placeholder="seu@email.com" required>
+          </div>
+          <div class="form-group">
+            <label for="regSenha">Senha *</label>
+            <input type="password" id="regSenha" class="form-control" placeholder="Mínimo 6 caracteres" minlength="6" required>
+          </div>
+          <div class="form-group">
+            <label for="regTipo">Tipo de Conta *</label>
+            <select id="regTipo" class="form-control" required>
+              <option value="CIDADAO">Cidadão / Morador</option>
+              <option value="ORGANIZACAO">Organização / Comércio / Autônomo</option>
+            </select>
+          </div>
+          <button type="submit" class="btn-primary btn-block btn-lg" style="margin-top:12px;">
+            Criar Minha Conta
+          </button>
+        </form>
       </div>
     </div>
   </div>

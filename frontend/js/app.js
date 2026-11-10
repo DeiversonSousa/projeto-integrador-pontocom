@@ -20,9 +20,38 @@ const state = {
   userCircle: null,
   userMarker: null,
   activeView: 'feed',
+  activeModTab: 'pendentes',
   socket: null,
   isGpsActive: false
 };
+
+// ==========================================================================
+// Chime de Áudio para Notificações (Sintetizador Web Audio API)
+// ==========================================================================
+function playNotificationChime() {
+  try {
+    const AudioCtx = window.AudioContext || window.webkitAudioContext;
+    if (!AudioCtx) return;
+    const ctx = new AudioCtx();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(880, ctx.currentTime); // Nota Lá (A5)
+    osc.frequency.exponentialRampToValueAtTime(1320, ctx.currentTime + 0.14); // Mi (E6)
+
+    gain.gain.setValueAtTime(0.18, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.38);
+
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+
+    osc.start();
+    osc.stop(ctx.currentTime + 0.38);
+  } catch {
+    // Silencia se o navegador bloquear autoplay
+  }
+}
 
 // ==========================================================================
 // Inicialização do WebSocket (Socket.io)
@@ -58,6 +87,7 @@ function initWebSocket() {
   // Receber notificação push em tempo real
   socket.on('notificacao_push', (notif) => {
     console.log('📲 Notificação Push recebida:', notif);
+    playNotificationChime();
     mostrarNotificacaoPush(notif);
   });
 
@@ -90,25 +120,25 @@ function mostrarNotificacaoPush(notif) {
 
   const banner = document.createElement('div');
   banner.style.cssText = `
-    position: fixed; top: 76px; right: 16px; z-index: 9999;
+    position: fixed; top: 68px; right: 12px; z-index: 9999;
     background: white; border-left: 5px solid ${cor};
-    border-radius: 12px; padding: 14px 18px;
-    max-width: 360px; box-shadow: 0 10px 30px rgba(0,0,0,0.18);
-    animation: toastSlideUp 0.35s ease; cursor: pointer;
+    border-radius: 10px; padding: 12px 16px;
+    max-width: 340px; box-shadow: 0 8px 25px rgba(0,0,0,0.18);
+    animation: toastSlideUp 0.3s ease; cursor: pointer;
     display: flex; flex-direction: column; gap: 4px; border: 1px solid #e2e8f0;
   `;
   banner.innerHTML = `
-    <div style="display:flex; align-items:center; justify-content:space-between; gap:8px;">
-      <span style="font-weight:800; color:${cor}; font-size:0.82rem; text-transform:uppercase;">
+    <div style="display:flex; align-items:center; justify-content:space-between; gap:6px;">
+      <span style="font-weight:800; color:${cor}; font-size:0.78rem; text-transform:uppercase;">
         ${icone} Aviso Próximo a Você
       </span>
-      <span style="font-size:0.72rem; color:#94a3b8;">${notif.horario || 'Agora'}</span>
+      <span style="font-size:0.7rem; color:#94a3b8;">${notif.horario || 'Agora'}</span>
     </div>
-    <div style="font-size:0.95rem; font-weight:700; color:#0f172a; line-height:1.3;">${notif.titulo}</div>
-    <div style="font-size:0.8rem; color:#64748b; margin-top:2px;">
+    <div style="font-size:0.9rem; font-weight:700; color:#0f172a; line-height:1.25;">${notif.titulo}</div>
+    <div style="font-size:0.76rem; color:#64748b; margin-top:2px;">
       📍 a ${notif.distancia_km} km · Notificação ${notif.notificacoes_hoje || 1}/${notif.limite_diario || 5} de hoje
     </div>
-    <div style="font-size:0.75rem; color:#004fb0; font-weight:600; margin-top:4px;">Toque para ver detalhes completos →</div>
+    <div style="font-size:0.72rem; color:#004fb0; font-weight:600; margin-top:2px;">Toque para ver detalhes completos →</div>
   `;
 
   banner.addEventListener('click', () => {
@@ -119,13 +149,12 @@ function mostrarNotificacaoPush(notif) {
   document.body.appendChild(banner);
 
   setTimeout(() => {
-    banner.style.transition = 'opacity 0.4s, transform 0.4s';
+    banner.style.transition = 'opacity 0.3s, transform 0.3s';
     banner.style.opacity = '0';
     banner.style.transform = 'translateX(20px)';
-    setTimeout(() => banner.remove(), 400);
+    setTimeout(() => banner.remove(), 300);
   }, 7000);
 
-  // Notificação nativa se o usuário permitiu
   if (window.Notification && Notification.permission === 'granted') {
     try {
       new Notification(`${icone} Portal de Notificações • SENAI FATESG`, {
@@ -133,7 +162,7 @@ function mostrarNotificacaoPush(notif) {
         icon: 'https://cdn-icons-png.flaticon.com/512/3602/3602145.png'
       });
     } catch {
-      // Ignora falha de permissão nativa
+      // Ignora erro nativo
     }
   }
 }
@@ -146,12 +175,11 @@ document.addEventListener('DOMContentLoaded', async () => {
   setupEventHandlers();
   setDefaultDates();
 
-  // Solicitar permissão de notificação nativa discretamente
   if (window.Notification && Notification.permission === 'default') {
     setTimeout(() => Notification.requestPermission(), 3000);
   }
 
-  // Se não houver usuário logado, inicia com a conta de Morador padrão
+  // Se não houver usuário logado, conecta como Morador padrão
   if (!state.token || !state.user) {
     await loginAs('morador@cidadao.com', '123456');
   } else {
@@ -168,18 +196,17 @@ document.addEventListener('DOMContentLoaded', async () => {
   initWebSocket();
   loadFeed();
 
-  // Redimensionar Leaflet quando a janela for redimensionada
   window.addEventListener('resize', () => {
     if (state.map && state.activeView === 'mapa') {
       state.map.invalidateSize();
     }
   });
 
-  // Fechar modais ao teclar ESC
   window.addEventListener('keydown', (e) => {
     if (e.key === 'Escape') {
       closeDetailsModal();
       closeDialogModal();
+      closeAuthModal();
     }
   });
 });
@@ -200,20 +227,16 @@ function setupNavigation() {
 function switchView(viewName) {
   state.activeView = viewName;
 
-  // Alternar visibilidade das seções
   document.querySelectorAll('.view-section').forEach(s => s.classList.remove('active'));
   const targetSection = document.getElementById(`view-${viewName}`);
   if (targetSection) targetSection.classList.add('active');
 
-  // Sincronizar classes ativas em ambas as barras de navegação (desktop e mobile)
   document.querySelectorAll('.nav-item').forEach(b => {
     b.classList.toggle('active', b.dataset.view === viewName);
   });
 
-  // Scroll suave para o topo
   window.scrollTo({ top: 0, behavior: 'smooth' });
 
-  // Ações contextuais de cada aba
   if (viewName === 'feed') {
     loadFeed();
   } else if (viewName === 'mapa') {
@@ -227,7 +250,7 @@ function switchView(viewName) {
   }
 }
 
-// Atualização da UI do Usuário e Controle de Acesso
+// Atualização da UI do Usuário
 function updateUserUI() {
   const userPill = document.getElementById('userPill');
   const navModMobile = document.getElementById('navItemModeracao');
@@ -239,12 +262,11 @@ function updateUserUI() {
   if (state.user) {
     const primeiroNome = state.user.nome.split(' ')[0];
     userPill.innerHTML = `
-      <span>👤 <strong>${primeiroNome}</strong></span>
+      <span onclick="openAuthModal()" style="cursor:pointer;" title="Clique para trocar de conta">👤 <strong>${primeiroNome}</strong></span>
       <span class="badge">${state.user.tipo}</span>
       <button onclick="logout()" class="user-pill-btn-logout" title="Sair do perfil">✕</button>
     `;
 
-    // Controle de abas por perfil
     const isAdmin = state.user.tipo === 'ADMIN';
     const isOrg = state.user.tipo === 'ORGANIZACAO';
 
@@ -256,7 +278,7 @@ function updateUserUI() {
 
     if (roleBadge) roleBadge.innerText = state.user.tipo;
   } else {
-    userPill.innerHTML = `<button onclick="loginAs('morador@cidadao.com', '123456')" class="btn-demo" style="padding:4px 10px;">Conectar</button>`;
+    userPill.innerHTML = `<button onclick="openAuthModal()" class="btn-primary" style="padding:4px 10px; font-size:0.75rem;">Entrar</button>`;
     if (navModMobile) navModMobile.style.display = 'none';
     if (navModDesk) navModDesk.style.display = 'none';
     if (navPubMobile) navPubMobile.style.display = 'none';
@@ -268,7 +290,6 @@ function updateUserUI() {
 // Handlers dos Controles Geoespaciais e Busca
 // ==========================================================================
 function setupEventHandlers() {
-  // Slider de Raio
   const radiusRange = document.getElementById('radiusRange');
   const radiusVal = document.getElementById('radiusVal');
 
@@ -283,7 +304,6 @@ function setupEventHandlers() {
     if (state.activeView === 'mapa') initOrUpdateMap();
   });
 
-  // Busca Textual Debounced
   const searchInput = document.getElementById('searchInput');
   const btnClearSearch = document.getElementById('btnClearSearch');
   let searchTimeout;
@@ -299,7 +319,6 @@ function setupEventHandlers() {
     }, 350);
   });
 
-  // Abas de Categoria
   const catButtons = document.querySelectorAll('.tab-btn');
   catButtons.forEach(btn => {
     btn.addEventListener('click', () => {
@@ -311,7 +330,6 @@ function setupEventHandlers() {
     });
   });
 
-  // Botão Usar GPS
   document.getElementById('btnGps').addEventListener('click', getCurrentGpsLocation);
 }
 
@@ -360,7 +378,6 @@ function setDefaultDates() {
   }
 }
 
-// Obter localização real do dispositivo
 function getCurrentGpsLocation() {
   if (!('geolocation' in navigator)) {
     showToast('Geolocalização não suportada pelo seu navegador.', 'error');
@@ -429,16 +446,16 @@ async function loadFeed(showSkeleton = true) {
     const pubs = data.publicacoes || [];
 
     if (statsText) {
-      statsText.innerText = `${pubs.length} ${pubs.length === 1 ? 'aviso encontrado' : 'avisos encontrados'} em até ${state.radiusKm} km`;
+      statsText.innerText = `${pubs.length} ${pubs.length === 1 ? 'aviso encontrado' : 'avisos encontrados'} em até ${state.radiusKm.toFixed(1)} km`;
     }
 
     if (pubs.length === 0) {
       container.innerHTML = `
         <div class="empty-state">
           <div class="empty-state-icon">📡</div>
-          <h4>Nenhum aviso encontrado neste raio (${state.radiusKm} km)</h4>
+          <h4>Nenhum aviso encontrado neste raio (${state.radiusKm.toFixed(1)} km)</h4>
           <p>Tente expandir o alcance das notificações no slider acima ou trocar a categoria selecionada.</p>
-          <button class="btn-primary" onclick="setRadiusPreset(15)" style="max-width:200px; margin:0 auto;">
+          <button class="btn-primary" onclick="setRadiusPreset(15)" style="max-width:180px; margin:0 auto;">
             Expandir para 15 km
           </button>
         </div>
@@ -464,7 +481,6 @@ function renderPublicationCard(pub) {
   const badgeColor = pub.cor_badge || '#2563eb';
   const imgUrl = pub.imagem_url || 'https://images.unsplash.com/photo-1577495508048-b635879837f1?auto=format&fit=crop&w=800&q=80';
   
-  // Cálculo de dias restantes
   const hoje = new Date();
   const dtFim = new Date(pub.data_fim);
   const diffDias = Math.ceil((dtFim - hoje) / (1000 * 60 * 60 * 24));
@@ -512,7 +528,6 @@ function renderPublicationCard(pub) {
   `;
 }
 
-// Compartilhar Publicação (Web Share API ou Clipboard)
 function sharePublication(id, encodedTitulo) {
   const titulo = decodeURIComponent(encodedTitulo);
   const shareData = {
@@ -552,24 +567,22 @@ async function initOrUpdateMap() {
     state.map.setView([state.coords.lat, state.coords.lng], 13);
   }
 
-  // Limpar marcadores anteriores
   state.mapMarkers.forEach(m => state.map.removeLayer(m));
   state.mapMarkers = [];
 
   if (state.userCircle) state.map.removeLayer(state.userCircle);
   if (state.userMarker) state.map.removeLayer(state.userMarker);
 
-  // Marcador customizado do Cidadão (Você)
   const userIcon = L.divIcon({
     className: 'custom-user-marker',
     html: `
       <div class="pulse-circle"></div>
-      <div style="background:#00377a; color:white; border:3px solid white; border-radius:50%; width:34px; height:34px; display:flex; align-items:center; justify-content:center; box-shadow:0 3px 10px rgba(0,0,0,0.35); font-size:16px;">
+      <div style="background:#00377a; color:white; border:3px solid white; border-radius:50%; width:32px; height:32px; display:flex; align-items:center; justify-content:center; box-shadow:0 3px 8px rgba(0,0,0,0.35); font-size:15px;">
         👤
       </div>
     `,
-    iconSize: [34, 34],
-    iconAnchor: [17, 17]
+    iconSize: [32, 32],
+    iconAnchor: [16, 16]
   });
 
   state.userMarker = L.marker([state.coords.lat, state.coords.lng], { icon: userIcon })
@@ -582,16 +595,14 @@ async function initOrUpdateMap() {
       </div>
     `);
 
-  // Círculo de cobertura do raio de alcance
   state.userCircle = L.circle([state.coords.lat, state.coords.lng], {
     color: '#004fb0',
     weight: 2,
     fillColor: '#3b82f6',
     fillOpacity: 0.12,
-    radius: state.radiusKm * 1000 // Metros
+    radius: state.radiusKm * 1000
   }).addTo(state.map);
 
-  // Buscar publicações para plotar marcadores no mapa
   try {
     const params = new URLSearchParams({
       lat: state.coords.lat,
@@ -609,26 +620,26 @@ async function initOrUpdateMap() {
       const pinIcon = L.divIcon({
         className: 'custom-pin-icon',
         html: `
-          <div style="background:${pinColor}; color:white; border:2.5px solid white; border-radius:50%; width:32px; height:32px; display:flex; align-items:center; justify-content:center; box-shadow:0 3px 8px rgba(0,0,0,0.3); font-size:13px; font-weight:bold;">
+          <div style="background:${pinColor}; color:white; border:2.5px solid white; border-radius:50%; width:30px; height:30px; display:flex; align-items:center; justify-content:center; box-shadow:0 3px 8px rgba(0,0,0,0.3); font-size:12px; font-weight:bold;">
             ${pub.categoria_icone || '📍'}
           </div>
         `,
-        iconSize: [32, 32],
-        iconAnchor: [16, 16]
+        iconSize: [30, 30],
+        iconAnchor: [15, 15]
       });
 
       const marker = L.marker([pub.latitude, pub.longitude], { icon: pinIcon }).addTo(state.map);
       marker.bindPopup(`
-        <div style="font-family: inherit; max-width: 230px;">
-          <span style="background:${pub.cor_badge}; color:white; padding:3px 8px; border-radius:4px; font-size:10px; font-weight:bold; text-transform:uppercase;">
+        <div style="font-family: inherit; max-width: 220px;">
+          <span style="background:${pub.cor_badge}; color:white; padding:2px 6px; border-radius:4px; font-size:9px; font-weight:bold; text-transform:uppercase;">
             ${pub.categoria_nome}
           </span>
-          <h4 style="margin:8px 0 4px; font-size:13px; color:#0f172a; line-height:1.3;">${pub.titulo}</h4>
-          <p style="font-size:11px; color:#64748b; margin-bottom:6px;">${pub.endereco}</p>
-          <div style="font-size:11px; font-weight:700; color:#004fb0; margin-bottom:8px;">
+          <h4 style="margin:6px 0 3px; font-size:12px; color:#0f172a; line-height:1.25;">${pub.titulo}</h4>
+          <p style="font-size:10px; color:#64748b; margin-bottom:5px;">${pub.endereco}</p>
+          <div style="font-size:10px; font-weight:700; color:#004fb0; margin-bottom:6px;">
             📍 a ${parseFloat(pub.distancia_km).toFixed(1)} km de você
           </div>
-          <button onclick="openDetailsModal(${pub.id})" style="width:100%; padding:6px; background:#004fb0; color:white; border:none; border-radius:6px; cursor:pointer; font-size:11px; font-weight:700;">
+          <button onclick="openDetailsModal(${pub.id})" style="width:100%; padding:5px; background:#004fb0; color:white; border:none; border-radius:5px; cursor:pointer; font-size:10px; font-weight:700;">
             Ver Detalhes do Aviso
           </button>
         </div>
@@ -652,7 +663,7 @@ function centerMapOnUser() {
 }
 
 // ==========================================================================
-// Modal de Detalhes da Publicação (Tela 3 do Slide)
+// Modal de Detalhes da Publicação
 // ==========================================================================
 async function openDetailsModal(pubId) {
   const modal = document.getElementById('detailsModal');
@@ -661,7 +672,7 @@ async function openDetailsModal(pubId) {
   modal.classList.add('active');
   
   body.innerHTML = `
-    <div style="text-align:center; padding:40px 20px;">
+    <div style="text-align:center; padding:30px 16px;">
       <div style="font-weight:600; color:#475569;">Carregando detalhes do aviso...</div>
     </div>
   `;
@@ -685,53 +696,53 @@ async function openDetailsModal(pubId) {
     const wppLink = cleanWpp ? `https://wa.me/55${cleanWpp}` : null;
 
     body.innerHTML = `
-      <div style="margin-bottom: 16px;">
-        <span class="badge-category" style="position:static; background:${pub.cor_badge}; display:inline-block; margin-bottom:8px;">
+      <div style="margin-bottom: 14px;">
+        <span class="badge-category" style="position:static; background:${pub.cor_badge}; display:inline-block; margin-bottom:6px;">
           ${pub.categoria_icone || '📢'} ${pub.categoria_nome}
         </span>
-        <h2 style="font-size: 1.35rem; color: #0f172a; margin-bottom: 8px; line-height:1.3;">${pub.titulo}</h2>
-        <div style="display:flex; align-items:center; gap:8px; font-size: 0.9rem; color: #004fb0; font-weight: 700;">
+        <h2 style="font-size: 1.25rem; color: #0f172a; margin-bottom: 6px; line-height:1.3;">${pub.titulo}</h2>
+        <div style="display:flex; align-items:center; gap:6px; font-size: 0.85rem; color: #004fb0; font-weight: 700;">
           <span>📍 Distância de você: <strong>${parseFloat(pub.distancia_km).toFixed(1)} km</strong></span>
         </div>
       </div>
 
       ${pub.imagem_url ? `
-        <div style="border-radius:10px; overflow:hidden; max-height:260px; margin-bottom:18px; border:1px solid #e2e8f0;">
+        <div style="border-radius:8px; overflow:hidden; max-height:220px; margin-bottom:14px; border:1px solid #e2e8f0;">
           <img src="${pub.imagem_url}" style="width:100%; height:100%; object-fit:cover; display:block;">
         </div>
       ` : ''}
 
-      <div style="font-size: 0.95rem; line-height: 1.6; color: #334155; margin-bottom: 20px;">
+      <div style="font-size: 0.9rem; line-height: 1.55; color: #334155; margin-bottom: 16px;">
         ${pub.descricao}
       </div>
 
-      <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:10px; padding:16px; margin-bottom:20px; font-size:0.86rem;">
-        <div style="margin-bottom:8px;"><strong>🏢 Responsável:</strong> ${pub.autor_nome} (${pub.autor_email})</div>
-        <div style="margin-bottom:8px;"><strong>📍 Endereço:</strong> ${pub.endereco} - ${pub.bairro || 'Goiânia'}, ${pub.cidade || 'Goiânia'}/${pub.estado || 'GO'}</div>
-        <div style="margin-bottom:8px;"><strong>📅 Vigência:</strong> Até ${new Date(pub.data_fim).toLocaleDateString('pt-BR')}</div>
+      <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px; padding:12px; margin-bottom:16px; font-size:0.82rem; line-height:1.45;">
+        <div style="margin-bottom:6px;"><strong>🏢 Responsável:</strong> ${pub.autor_nome} (${pub.autor_email})</div>
+        <div style="margin-bottom:6px;"><strong>📍 Endereço:</strong> ${pub.endereco} - ${pub.bairro || 'Goiânia'}, ${pub.cidade || 'Goiânia'}/${pub.estado || 'GO'}</div>
+        <div style="margin-bottom:6px;"><strong>📅 Vigência:</strong> Até ${new Date(pub.data_fim).toLocaleDateString('pt-BR')}</div>
         ${pub.contato_telefone ? `<div><strong>📞 Telefone:</strong> ${pub.contato_telefone}</div>` : ''}
       </div>
 
-      <div style="display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 20px;">
+      <div style="display: flex; gap: 8px; flex-direction: column; margin-bottom: 16px;">
         <a href="${gmapsUrl}" target="_blank" class="btn-primary" style="text-decoration:none; text-align:center;">
           🗺️ Como Chegar (Google Maps)
         </a>
         ${wppLink ? `
-          <a href="${wppLink}" target="_blank" class="btn-outline" style="text-decoration:none; background:#22c55e; color:white; border-color:#22c55e;">
+          <a href="${wppLink}" target="_blank" class="btn-outline" style="text-decoration:none; background:#22c55e; color:white; border-color:#22c55e; justify-content:center;">
             💬 Conversar no WhatsApp
           </a>
         ` : ''}
       </div>
 
-      <div style="border-top:1px solid #e2e8f0; padding-top:14px; display:flex; justify-content:space-between; align-items:center;">
-        <button onclick="reportPublication(${pub.id})" style="background:none; border:none; color:#dc2626; font-size:0.82rem; cursor:pointer; font-weight:700;">
+      <div style="border-top:1px solid #e2e8f0; padding-top:10px; display:flex; justify-content:space-between; align-items:center;">
+        <button onclick="reportPublication(${pub.id})" style="background:none; border:none; color:#dc2626; font-size:0.78rem; cursor:pointer; font-weight:700;">
           🚩 Denunciar publicação imprópria à moderação
         </button>
       </div>
     `;
   } catch (error) {
     body.innerHTML = `
-      <div style="color:#ef4444; padding:20px; text-align:center;">
+      <div style="color:#ef4444; padding:16px; text-align:center;">
         <h4>Erro ao carregar detalhes</h4>
         <p>${error.message}</p>
       </div>
@@ -749,6 +760,7 @@ function handleModalOverlayClick(event, modalId) {
   if (event.target.id === modalId) {
     if (modalId === 'detailsModal') closeDetailsModal();
     if (modalId === 'dialogModal') closeDialogModal();
+    if (modalId === 'authModal') closeAuthModal();
   }
 }
 
@@ -812,6 +824,81 @@ function closeDialogModal() {
   if (dialogResolve) {
     dialogResolve(null);
     dialogResolve = null;
+  }
+}
+
+// ==========================================================================
+// Modal de Login / Cadastro de Novo Usuário
+// ==========================================================================
+function openAuthModal() {
+  const modal = document.getElementById('authModal');
+  if (modal) {
+    document.body.classList.add('modal-open');
+    modal.classList.add('active');
+    switchAuthTab('login');
+  }
+}
+
+function closeAuthModal() {
+  const modal = document.getElementById('authModal');
+  if (modal) {
+    modal.classList.remove('active');
+    document.body.classList.remove('modal-open');
+  }
+}
+
+function switchAuthTab(tab) {
+  const tabLogin = document.getElementById('tabAuthLogin');
+  const tabReg = document.getElementById('tabAuthRegister');
+  const formLogin = document.getElementById('formLogin');
+  const formReg = document.getElementById('formRegister');
+  const modalTitle = document.getElementById('authModalTitle');
+
+  if (tab === 'login') {
+    tabLogin.classList.add('active');
+    tabReg.classList.remove('active');
+    formLogin.style.display = 'block';
+    formReg.style.display = 'none';
+    modalTitle.innerText = 'Entrar na Plataforma';
+  } else {
+    tabLogin.classList.remove('active');
+    tabReg.classList.add('active');
+    formLogin.style.display = 'none';
+    formReg.style.display = 'block';
+    modalTitle.innerText = 'Criar Nova Conta';
+  }
+}
+
+async function submitCustomLogin(e) {
+  e.preventDefault();
+  const email = document.getElementById('loginEmail').value.trim();
+  const senha = document.getElementById('loginSenha').value;
+
+  await loginAs(email, senha);
+  closeAuthModal();
+}
+
+async function submitCustomRegister(e) {
+  e.preventDefault();
+  const nome = document.getElementById('regNome').value.trim();
+  const email = document.getElementById('regEmail').value.trim();
+  const senha = document.getElementById('regSenha').value;
+  const tipo = document.getElementById('regTipo').value;
+
+  try {
+    const res = await fetch(`${state.apiBase}/auth/register`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ nome, email, senha, tipo })
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error);
+
+    showToast('Conta criada com sucesso! Conectando...', 'success');
+    closeAuthModal();
+    await loginAs(email, senha);
+  } catch (err) {
+    showToast(`Erro no cadastro: ${err.message}`, 'error');
   }
 }
 
@@ -1010,7 +1097,6 @@ async function loadProfileData() {
   document.getElementById('chkPromocao').checked = cats.includes('PROMOCAO');
   document.getElementById('chkSocial').checked = cats.includes('SOCIAL');
 
-  // Carregar status da cota anti-spam
   try {
     const res = await fetch(`${state.apiBase}/usuarios/quota`, {
       headers: { 'Authorization': `Bearer ${state.token}` }
@@ -1019,15 +1105,15 @@ async function loadProfileData() {
     const percent = Math.min(100, Math.round((quota.recebidasHoje / quota.limiteDiario) * 100));
 
     document.getElementById('quotaStats').innerHTML = `
-      <div style="background:#f8fafc; padding:14px; border-radius:10px; border:1px solid #e2e8f0; margin-top:10px;">
-        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
-          <strong style="font-size:0.85rem; color:#0f172a;">Consumo da Cota Diária Anti-Spam:</strong>
-          <span style="font-size:0.8rem; font-weight:700; color:#004fb0;">${quota.recebidasHoje} de ${quota.limiteDiario}</span>
+      <div style="background:#f8fafc; padding:12px; border-radius:8px; border:1px solid #e2e8f0; margin-top:10px;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:5px;">
+          <strong style="font-size:0.82rem; color:#0f172a;">Consumo da Cota Diária Anti-Spam:</strong>
+          <span style="font-size:0.78rem; font-weight:700; color:#004fb0;">${quota.recebidasHoje} de ${quota.limiteDiario}</span>
         </div>
-        <div style="width:100%; height:8px; background:#e2e8f0; border-radius:4px; overflow:hidden;">
+        <div style="width:100%; height:7px; background:#e2e8f0; border-radius:4px; overflow:hidden;">
           <div style="width:${percent}%; height:100%; background:${percent >= 100 ? '#ef4444' : '#10b981'}; transition:width 0.4s;"></div>
         </div>
-        <div style="font-size:0.75rem; color:#64748b; margin-top:6px;">
+        <div style="font-size:0.73rem; color:#64748b; margin-top:5px;">
           ${quota.restantesHoje > 0 
             ? `Você ainda pode receber <strong>${quota.restantesHoje}</strong> notificações hoje sem sobrecarga.` 
             : '<span style="color:#ef4444; font-weight:700;">Limite diário atingido. O filtro anti-spam pausou novos envios push até amanhã.</span>'}
@@ -1035,7 +1121,7 @@ async function loadProfileData() {
       </div>
     `;
   } catch {
-    // Ignora se rota de cota falhar
+    // Ignora falha de cota
   }
 }
 
@@ -1075,7 +1161,6 @@ async function saveProfilePreferences() {
   }
 }
 
-// Exclusão LGPD (Direito ao Esquecimento)
 async function confirmLgpdDelete() {
   const confirmou = await showCustomDialog({
     title: 'Eliminação de Dados Pessoais (LGPD)',
@@ -1102,11 +1187,32 @@ async function confirmLgpdDelete() {
 }
 
 // ==========================================================================
-// Painel de Moderação (Administrador)
+// Painel de Moderação (Administrador - Com Sub-abas)
 // ==========================================================================
+function switchModTab(tabName) {
+  state.activeModTab = tabName;
+  const tabPend = document.getElementById('tabModPendentes');
+  const tabDen = document.getElementById('tabModDenuncias');
+
+  if (tabPend && tabDen) {
+    tabPend.classList.toggle('active', tabName === 'pendentes');
+    tabDen.classList.toggle('active', tabName === 'denuncias');
+  }
+
+  loadModerationData();
+}
+
 async function loadModerationData() {
+  if (state.activeModTab === 'denuncias') {
+    await loadModerationDenuncias();
+  } else {
+    await loadModerationPendentes();
+  }
+}
+
+async function loadModerationPendentes() {
   const modContainer = document.getElementById('modContainer');
-  modContainer.innerHTML = '<div style="text-align:center; padding:30px;">Carregando fila de moderação...</div>';
+  modContainer.innerHTML = '<div style="text-align:center; padding:24px; font-size:0.86rem; color:#64748b;">Carregando avisos pendentes...</div>';
 
   try {
     const res = await fetch(`${state.apiBase}/moderacao/pendentes`, {
@@ -1115,20 +1221,21 @@ async function loadModerationData() {
     const data = await res.json();
     const pendentes = data.pendentes || [];
 
+    const badgePend = document.getElementById('badgeModPendentes');
+    if (badgePend) badgePend.innerText = pendentes.length;
+
     if (pendentes.length === 0) {
       modContainer.innerHTML = `
         <div class="empty-state" style="border-color:#10b981;">
           <div class="empty-state-icon">✅</div>
-          <h4 style="color:#059669;">Fila de Moderação em Dia</h4>
-          <p>Não há publicações pendentes de aprovação no momento.</p>
+          <h4 style="color:#059669;">Nenhum aviso pendente</h4>
+          <p>Todas as publicações submetidas já foram analisadas.</p>
         </div>
       `;
       return;
     }
 
-    // Renderiza em formato duplo: Cards para mobile e Tabela para desktop
     modContainer.innerHTML = `
-      <!-- Desktop Table -->
       <div class="mod-table-wrap">
         <table class="mod-table">
           <thead>
@@ -1153,7 +1260,7 @@ async function loadModerationData() {
                 </td>
                 <td>${new Date(p.criado_em).toLocaleDateString('pt-BR')}</td>
                 <td>
-                  <span style="background:#fef3c7; color:#92400e; padding:3px 8px; border-radius:4px; font-size:0.72rem; font-weight:700;">
+                  <span style="background:#fef3c7; color:#92400e; padding:3px 8px; border-radius:4px; font-size:0.7rem; font-weight:700;">
                     PENDENTE
                   </span>
                 </td>
@@ -1169,13 +1276,12 @@ async function loadModerationData() {
         </table>
       </div>
 
-      <!-- Mobile Cards -->
       <div class="mod-cards-wrap">
         ${pendentes.map(p => `
           <div class="mod-item-card">
             <div class="mod-item-header">
               <span class="mod-item-title">${p.titulo}</span>
-              <span style="background:#fef3c7; color:#92400e; padding:2px 8px; border-radius:4px; font-size:0.72rem; font-weight:700;">PENDENTE</span>
+              <span style="background:#fef3c7; color:#92400e; padding:2px 6px; border-radius:4px; font-size:0.68rem; font-weight:700;">PENDENTE</span>
             </div>
             <div class="mod-item-meta">
               <strong>Categoria:</strong> ${p.categoria_nome}<br>
@@ -1191,7 +1297,120 @@ async function loadModerationData() {
       </div>
     `;
   } catch (err) {
-    modContainer.innerHTML = `<div style="color:red; padding:20px;">Erro ao carregar moderação: ${err.message}</div>`;
+    modContainer.innerHTML = `<div style="color:red; padding:16px;">Erro ao carregar moderação: ${err.message}</div>`;
+  }
+}
+
+async function loadModerationDenuncias() {
+  const modContainer = document.getElementById('modContainer');
+  modContainer.innerHTML = '<div style="text-align:center; padding:24px; font-size:0.86rem; color:#64748b;">Carregando denúncias comunitárias...</div>';
+
+  try {
+    const res = await fetch(`${state.apiBase}/moderacao/denuncias`, {
+      headers: { 'Authorization': `Bearer ${state.token}` }
+    });
+    const data = await res.json();
+    const denuncias = data.denuncias || [];
+
+    const badgeDen = document.getElementById('badgeModDenuncias');
+    if (badgeDen) badgeDen.innerText = denuncias.length;
+
+    if (denuncias.length === 0) {
+      modContainer.innerHTML = `
+        <div class="empty-state" style="border-color:#10b981;">
+          <div class="empty-state-icon">🛡️</div>
+          <h4 style="color:#059669;">Nenhuma denúncia registrada</h4>
+          <p>A comunidade não apontou irregularidades nas publicações ativas.</p>
+        </div>
+      `;
+      return;
+    }
+
+    modContainer.innerHTML = `
+      <div class="mod-table-wrap">
+        <table class="mod-table">
+          <thead>
+            <tr>
+              <th>Publicação Alvo</th>
+              <th>Denunciante</th>
+              <th>Motivo Apontado</th>
+              <th>Data</th>
+              <th>Ações</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${denuncias.map(d => `
+              <tr>
+                <td>
+                  <strong>${d.publicacao_titulo}</strong><br>
+                  <span style="font-size:0.75rem; color:#64748b;">Autor: ${d.autor_nome}</span>
+                </td>
+                <td>
+                  ${d.denunciante_nome}<br>
+                  <span style="font-size:0.75rem; color:#64748b;">${d.denunciante_email}</span>
+                </td>
+                <td>
+                  <em style="color:#b91c1c;">"${d.motivo}"</em>
+                </td>
+                <td>${new Date(d.data_denuncia).toLocaleDateString('pt-BR')}</td>
+                <td>
+                  <button class="btn-reject" onclick="suspendReportedPublication(${d.publicacao_id})">
+                    🛑 Suspender Aviso
+                  </button>
+                </td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      </div>
+
+      <div class="mod-cards-wrap">
+        ${denuncias.map(d => `
+          <div class="mod-item-card" style="border-left: 4px solid #ef4444;">
+            <div class="mod-item-header">
+              <span class="mod-item-title">${d.publicacao_titulo}</span>
+              <span style="background:#fee2e2; color:#b91c1c; padding:2px 6px; border-radius:4px; font-size:0.68rem; font-weight:700;">DENÚNCIA</span>
+            </div>
+            <div class="mod-item-meta">
+              <strong>Motivo:</strong> <span style="color:#b91c1c;">"${d.motivo}"</span><br>
+              <strong>Denunciante:</strong> ${d.denunciante_nome}<br>
+              <strong>Data:</strong> ${new Date(d.data_denuncia).toLocaleDateString('pt-BR')}
+            </div>
+            <div class="mod-item-actions">
+              <button class="btn-reject" onclick="suspendReportedPublication(${d.publicacao_id})">
+                🛑 Suspender Publicação Denunciada
+              </button>
+            </div>
+          </div>
+        `).join('')}
+      </div>
+    `;
+  } catch (err) {
+    modContainer.innerHTML = `<div style="color:red; padding:16px;">Erro ao carregar denúncias: ${err.message}</div>`;
+  }
+}
+
+async function suspendReportedPublication(pubId) {
+  const confirmou = await showCustomDialog({
+    title: 'Suspender Publicação Denunciada',
+    message: 'Deseja suspender imediatamente esta publicação do feed e mapa da comunidade?',
+    confirmText: 'Sim, Suspender',
+    cancelText: 'Cancelar',
+    isDanger: true
+  });
+
+  if (!confirmou) return;
+
+  try {
+    const res = await fetch(`${state.apiBase}/moderacao/${pubId}/suspender`, {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${state.token}` }
+    });
+    const data = await res.json();
+    showToast(data.message || 'Publicação suspensa com sucesso.', 'info');
+    loadModerationData();
+  } catch {
+    showToast('Erro ao suspender publicação.', 'error');
   }
 }
 
@@ -1268,15 +1487,13 @@ async function loginAs(email, senha) {
       setRadiusPreset(state.user.raio_alcance_km);
     }
 
-    // Marca o botão da demonstração ativo
     document.querySelectorAll('.btn-demo').forEach(b => {
       b.classList.toggle('active', b.dataset.email === email);
     });
 
     updateUserUI();
-    showToast(`Conectado como: ${state.user.nome} (${state.user.tipo})`, 'success');
+    showToast(`Conectado: ${state.user.nome.split(' ')[0]} (${state.user.tipo})`, 'success');
 
-    // Registrar no socket
     if (state.socket && state.user) {
       state.socket.emit('registrar_usuario', { usuarioId: state.user.id, nome: state.user.nome });
     }
@@ -1315,9 +1532,9 @@ function showToast(message, type = 'info') {
   container.appendChild(toast);
 
   setTimeout(() => {
-    toast.style.transition = 'opacity 0.3s, transform 0.3s';
+    toast.style.transition = 'opacity 0.25s, transform 0.25s';
     toast.style.opacity = '0';
     toast.style.transform = 'translateY(10px)';
-    setTimeout(() => toast.remove(), 300);
-  }, 4200);
+    setTimeout(() => toast.remove(), 250);
+  }, 3800);
 }
