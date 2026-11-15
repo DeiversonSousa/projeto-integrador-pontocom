@@ -9,6 +9,7 @@ import authRoutes from './routes/authRoutes';
 import userRoutes from './routes/userRoutes';
 import publicationRoutes from './routes/publicationRoutes';
 import moderationRoutes from './routes/moderationRoutes';
+import chatRoutes from './routes/chatRoutes';
 import { query } from './config/db';
 import { SocketService } from './services/socketService';
 
@@ -53,6 +54,7 @@ app.use('/api/auth', authRoutes);
 app.use('/api/usuarios', userRoutes);
 app.use('/api/publicacoes', publicationRoutes);
 app.use('/api/moderacao', moderationRoutes);
+app.use('/api/chat', chatRoutes);
 
 // Resolução robusta do diretório do frontend
 const candidateFrontendPaths = [

@@ -21,9 +21,56 @@ const state = {
   userMarker: null,
   activeView: 'feed',
   activeModTab: 'pendentes',
+  activeConversationId: null,
+  activeConversationData: null,
   socket: null,
   isGpsActive: false
 };
+
+// ==========================================================================
+// Utilitários de Segurança e Escaping
+// ==========================================================================
+function escapeHtml(str) {
+  if (str === null || str === undefined) return '';
+  const div = document.createElement('div');
+  div.innerText = String(str);
+  return div.innerHTML;
+}
+
+function escapeAttr(str) {
+  if (str === null || str === undefined) return '';
+  return String(str)
+    .replace(/\\/g, '\\\\')
+    .replace(/'/g, "\\'")
+    .replace(/"/g, '&quot;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
+}
+
+// ==========================================================================
+// Modo Escuro (Dark Mode)
+// ==========================================================================
+function initTheme() {
+  const savedTheme = localStorage.getItem('ponto_theme') || 'light';
+  document.documentElement.setAttribute('data-theme', savedTheme);
+  updateThemeIcon(savedTheme);
+}
+
+function toggleDarkMode() {
+  const currentTheme = document.documentElement.getAttribute('data-theme') || 'light';
+  const nextTheme = currentTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.setAttribute('data-theme', nextTheme);
+  localStorage.setItem('ponto_theme', nextTheme);
+  updateThemeIcon(nextTheme);
+  showToast(`Modo ${nextTheme === 'dark' ? 'Escuro 🌙' : 'Claro ☀️'} ativado!`, 'info');
+}
+
+function updateThemeIcon(theme) {
+  const iconEl = document.getElementById('themeToggleIcon');
+  if (iconEl) {
+    iconEl.innerText = theme === 'dark' ? '☀️' : '🌙';
+  }
+}
 
 // ==========================================================================
 // Chime de Áudio para Notificações (Sintetizador Web Audio API)
@@ -89,6 +136,12 @@ function initWebSocket() {
     console.log('📲 Notificação Push recebida:', notif);
     playNotificationChime();
     mostrarNotificacaoPush(notif);
+  });
+
+  // Receber mensagem de chat em tempo real
+  socket.on('nova_mensagem_chat', (dados) => {
+    console.log('💬 Mensagem de chat recebida via WebSocket:', dados);
+    handleIncomingChatMessage(dados);
   });
 
   // Atualizar feed automaticamente quando um novo aviso for aprovado
@@ -171,6 +224,7 @@ function mostrarNotificacaoPush(notif) {
 // Inicialização do DOM
 // ==========================================================================
 document.addEventListener('DOMContentLoaded', async () => {
+  initTheme();
   setupNavigation();
   setupEventHandlers();
   setDefaultDates();
@@ -191,6 +245,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (state.user.raio_alcance_km) {
       setRadiusPreset(state.user.raio_alcance_km);
     }
+    updateCashUI();
+    loadConversations();
   }
 
   initWebSocket();
@@ -207,6 +263,8 @@ document.addEventListener('DOMContentLoaded', async () => {
       closeDetailsModal();
       closeDialogModal();
       closeAuthModal();
+      closeEditModal();
+      closeWalletModal();
     }
   });
 });
@@ -243,6 +301,8 @@ function switchView(viewName) {
     setTimeout(initOrUpdateMap, 150);
   } else if (viewName === 'favoritos') {
     loadFavorites();
+  } else if (viewName === 'chat') {
+    loadConversations();
   } else if (viewName === 'perfil') {
     loadProfileData();
   } else if (viewName === 'moderacao') {
@@ -258,6 +318,7 @@ function updateUserUI() {
   const navPubMobile = document.getElementById('navItemNovaPub');
   const navPubDesk = document.getElementById('navItemNovaPubDesktop');
   const roleBadge = document.getElementById('newPubRoleBadge');
+  const cashValEl = document.getElementById('headerCashVal');
 
   if (state.user) {
     const primeiroNome = state.user.nome.split(' ')[0];
@@ -268,21 +329,26 @@ function updateUserUI() {
     `;
 
     const isAdmin = state.user.tipo === 'ADMIN';
-    const isOrg = state.user.tipo === 'ORGANIZACAO';
 
     if (navModMobile) navModMobile.style.display = isAdmin ? 'flex' : 'none';
     if (navModDesk) navModDesk.style.display = isAdmin ? 'flex' : 'none';
 
-    if (navPubMobile) navPubMobile.style.display = (isAdmin || isOrg) ? 'flex' : 'none';
-    if (navPubDesk) navPubDesk.style.display = (isAdmin || isOrg) ? 'flex' : 'none';
+    // Cidadãos, organizações e admin podem publicar ações regionais
+    if (navPubMobile) navPubMobile.style.display = 'flex';
+    if (navPubDesk) navPubDesk.style.display = 'flex';
 
     if (roleBadge) roleBadge.innerText = state.user.tipo;
+
+    if (cashValEl) {
+      cashValEl.innerText = parseFloat(state.user.saldo_cash || '0').toFixed(2);
+    }
   } else {
     userPill.innerHTML = `<button onclick="openAuthModal()" class="btn-primary" style="padding:4px 10px; font-size:0.75rem;">Entrar</button>`;
     if (navModMobile) navModMobile.style.display = 'none';
     if (navModDesk) navModDesk.style.display = 'none';
     if (navPubMobile) navPubMobile.style.display = 'none';
     if (navPubDesk) navPubDesk.style.display = 'none';
+    if (cashValEl) cashValEl.innerText = '0.00';
   }
 }
 
@@ -486,9 +552,18 @@ function renderPublicationCard(pub) {
   const diffDias = Math.ceil((dtFim - hoje) / (1000 * 60 * 60 * 24));
   const expiraText = diffDias <= 0 ? 'Expira hoje' : `Expira em ${diffDias} ${diffDias === 1 ? 'dia' : 'dias'}`;
 
+  const isDestaque = pub.destaque === true && (!pub.destaque_ate || new Date(pub.destaque_ate) >= hoje);
+  const isOwner = state.user && state.user.id === pub.id_autor;
+  const isAdmin = state.user && state.user.tipo === 'ADMIN';
+
   return `
-    <article class="pub-card" data-id="${pub.id}">
+    <article class="pub-card ${isDestaque ? 'destaque' : ''}" data-id="${pub.id}">
       <div class="pub-card-image" style="background-image: url('${imgUrl}')">
+        ${isDestaque ? `
+          <span class="badge-destaque">
+            ⭐ DESTAQUE
+          </span>
+        ` : ''}
         <span class="badge-category" style="background-color: ${badgeColor};">
           ${pub.categoria_icone || '📢'} ${pub.categoria_nome}
         </span>
@@ -497,15 +572,15 @@ function renderPublicationCard(pub) {
         </span>
       </div>
       <div class="pub-card-body">
-        <h3 class="pub-card-title">${pub.titulo}</h3>
-        <p class="pub-card-desc">${pub.descricao}</p>
+        <h3 class="pub-card-title">${escapeHtml(pub.titulo)}</h3>
+        <p class="pub-card-desc">${escapeHtml(pub.descricao)}</p>
         
         <div class="pub-card-meta">
           <div class="pub-card-meta-item">
-            <span>🏢</span> <strong>${pub.autor_nome}</strong>
+            <span>🏢</span> <strong>${escapeHtml(pub.autor_nome)}</strong>
           </div>
           <div class="pub-card-meta-item">
-            <span>📍</span> <span>${pub.endereco || 'Setor Universitário'}</span>
+            <span>📍</span> <span>${escapeHtml(pub.endereco || 'Setor Universitário')}</span>
           </div>
           <div class="pub-card-meta-item" style="color: ${diffDias <= 3 ? '#dc2626' : 'inherit'}; font-weight:${diffDias <= 3 ? '600' : 'normal'};">
             <span>📅</span> <span>${expiraText} (${dtFim.toLocaleDateString('pt-BR')})</span>
@@ -516,6 +591,24 @@ function renderPublicationCard(pub) {
           <button class="btn-primary" onclick="openDetailsModal(${pub.id})">
             Ver Detalhes
           </button>
+          ${(!isOwner && state.user) ? `
+            <button class="btn-card-action btn-chat" onclick="startChatWithUser(${pub.id_autor}, ${pub.id}, '${escapeAttr(pub.autor_nome)}', '${escapeAttr(pub.titulo)}')" title="Conversar com autor">
+              💬 Chat
+            </button>
+          ` : ''}
+          ${(isOwner || isAdmin) ? `
+            <button class="btn-card-action btn-edit" onclick="openEditModal(${pub.id})" title="Editar aviso">
+              ✏️ Editar
+            </button>
+            <button class="btn-card-action btn-delete" onclick="confirmDeletePublication(${pub.id})" title="Excluir aviso">
+              🗑️ Excluir
+            </button>
+          ` : ''}
+          ${((isOwner || isAdmin) && !isDestaque) ? `
+            <button class="btn-card-action btn-destacar" onclick="confirmDestacarPublication(${pub.id})" title="Destacar este aviso no topo do feed com PontoCash">
+              ⭐ Destacar
+            </button>
+          ` : ''}
           <button class="btn-outline" onclick="sharePublication(${pub.id}, '${encodeURIComponent(pub.titulo)}')" title="Compartilhar">
             🔗
           </button>
@@ -695,12 +788,19 @@ async function openDetailsModal(pubId) {
     const cleanWpp = pub.contato_whatsapp ? pub.contato_whatsapp.replace(/\D/g, '') : null;
     const wppLink = cleanWpp ? `https://wa.me/55${cleanWpp}` : null;
 
+    const isOwner = state.user && state.user.id === pub.id_autor;
+    const isAdmin = state.user && state.user.tipo === 'ADMIN';
+    const isDestaque = pub.destaque === true && (!pub.destaque_ate || new Date(pub.destaque_ate) >= new Date());
+
     body.innerHTML = `
       <div style="margin-bottom: 14px;">
+        ${isDestaque ? `
+          <div><span class="badge-destaque" style="position:static; display:inline-flex; margin-bottom:8px;">⭐ DESTAQUE REGIONAL ATIVO</span></div>
+        ` : ''}
         <span class="badge-category" style="position:static; background:${pub.cor_badge}; display:inline-block; margin-bottom:6px;">
           ${pub.categoria_icone || '📢'} ${pub.categoria_nome}
         </span>
-        <h2 style="font-size: 1.25rem; color: #0f172a; margin-bottom: 6px; line-height:1.3;">${pub.titulo}</h2>
+        <h2 style="font-size: 1.25rem; color: #0f172a; margin-bottom: 6px; line-height:1.3;">${escapeHtml(pub.titulo)}</h2>
         <div style="display:flex; align-items:center; gap:6px; font-size: 0.85rem; color: #004fb0; font-weight: 700;">
           <span>📍 Distância de você: <strong>${parseFloat(pub.distancia_km).toFixed(1)} km</strong></span>
         </div>
@@ -713,17 +813,23 @@ async function openDetailsModal(pubId) {
       ` : ''}
 
       <div style="font-size: 0.9rem; line-height: 1.55; color: #334155; margin-bottom: 16px;">
-        ${pub.descricao}
+        ${escapeHtml(pub.descricao)}
       </div>
 
       <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px; padding:12px; margin-bottom:16px; font-size:0.82rem; line-height:1.45;">
-        <div style="margin-bottom:6px;"><strong>🏢 Responsável:</strong> ${pub.autor_nome} (${pub.autor_email})</div>
-        <div style="margin-bottom:6px;"><strong>📍 Endereço:</strong> ${pub.endereco} - ${pub.bairro || 'Goiânia'}, ${pub.cidade || 'Goiânia'}/${pub.estado || 'GO'}</div>
+        <div style="margin-bottom:6px;"><strong>🏢 Responsável:</strong> ${escapeHtml(pub.autor_nome)} (${pub.autor_email})</div>
+        <div style="margin-bottom:6px;"><strong>📍 Endereço:</strong> ${escapeHtml(pub.endereco)} - ${escapeHtml(pub.bairro || 'Goiânia')}, ${pub.cidade || 'Goiânia'}/${pub.estado || 'GO'}</div>
         <div style="margin-bottom:6px;"><strong>📅 Vigência:</strong> Até ${new Date(pub.data_fim).toLocaleDateString('pt-BR')}</div>
-        ${pub.contato_telefone ? `<div><strong>📞 Telefone:</strong> ${pub.contato_telefone}</div>` : ''}
+        ${pub.contato_telefone ? `<div><strong>📞 Telefone:</strong> ${escapeHtml(pub.contato_telefone)}</div>` : ''}
+        ${pub.editado_em ? `<div style="color:#d97706; margin-top:4px;"><strong>✏️ Editado em:</strong> ${new Date(pub.editado_em).toLocaleDateString('pt-BR')} ${new Date(pub.editado_em).toLocaleTimeString('pt-BR', { hour:'2-digit', minute:'2-digit' })}</div>` : ''}
       </div>
 
       <div style="display: flex; gap: 8px; flex-direction: column; margin-bottom: 16px;">
+        ${(!isOwner && state.user) ? `
+          <button onclick="closeDetailsModal(); startChatWithUser(${pub.id_autor}, ${pub.id}, '${escapeAttr(pub.autor_nome)}', '${escapeAttr(pub.titulo)}')" class="btn-primary" style="background:#0284c7; border-color:#0284c7; justify-content:center;">
+            💬 Conversar com ${escapeHtml(pub.autor_nome)} no Chat
+          </button>
+        ` : ''}
         <a href="${gmapsUrl}" target="_blank" class="btn-primary" style="text-decoration:none; text-align:center;">
           🗺️ Como Chegar (Google Maps)
         </a>
@@ -731,6 +837,21 @@ async function openDetailsModal(pubId) {
           <a href="${wppLink}" target="_blank" class="btn-outline" style="text-decoration:none; background:#22c55e; color:white; border-color:#22c55e; justify-content:center;">
             💬 Conversar no WhatsApp
           </a>
+        ` : ''}
+        ${(isOwner || isAdmin) ? `
+          <div style="display:flex; gap:8px;">
+            <button onclick="closeDetailsModal(); openEditModal(${pub.id})" class="btn-outline" style="flex:1; justify-content:center; color:#92400e; border-color:#f59e0b; background:#fef3c7;">
+              ✏️ Editar
+            </button>
+            <button onclick="closeDetailsModal(); confirmDeletePublication(${pub.id})" class="btn-outline" style="flex:1; justify-content:center; color:#b91c1c; border-color:#fca5a5; background:#fee2e2;">
+              🗑️ Excluir
+            </button>
+          </div>
+        ` : ''}
+        ${((isOwner || isAdmin) && !isDestaque) ? `
+          <button onclick="closeDetailsModal(); confirmDestacarPublication(${pub.id})" class="btn-primary" style="background:linear-gradient(135deg, #f59e0b, #d97706); border:none; justify-content:center;">
+            ⭐ Impulsionar / Destacar Post (15 Cash)
+          </button>
         ` : ''}
       </div>
 
@@ -761,6 +882,8 @@ function handleModalOverlayClick(event, modalId) {
     if (modalId === 'detailsModal') closeDetailsModal();
     if (modalId === 'dialogModal') closeDialogModal();
     if (modalId === 'authModal') closeAuthModal();
+    if (modalId === 'editPubModal') closeEditModal();
+    if (modalId === 'walletModal') closeWalletModal();
   }
 }
 
@@ -1251,23 +1374,26 @@ async function loadModerationPendentes() {
             ${pendentes.map(p => `
               <tr>
                 <td>
-                  <strong>${p.titulo}</strong><br>
-                  <span style="font-size:0.75rem; color:#64748b;">${p.categoria_nome} • ${p.bairro || 'Goiânia'}</span>
+                  <strong>${escapeHtml(p.titulo)}</strong><br>
+                  <span style="font-size:0.75rem; color:#64748b;">${escapeHtml(p.categoria_nome)} • ${escapeHtml(p.bairro || 'Goiânia')}</span>
+                  ${p.editado_em ? `<br><small style="color:#c2410c; font-weight:600;">✏️ Editado em ${new Date(p.editado_em).toLocaleDateString('pt-BR')} ${new Date(p.editado_em).toLocaleTimeString('pt-BR', { hour:'2-digit', minute:'2-digit' })}</small>` : ''}
                 </td>
                 <td>
-                  ${p.autor_nome}<br>
-                  <span style="font-size:0.75rem; color:#64748b;">${p.autor_email}</span>
+                  ${escapeHtml(p.autor_nome)}<br>
+                  <span style="font-size:0.75rem; color:#64748b;">${escapeHtml(p.autor_email)}</span>
                 </td>
                 <td>${new Date(p.criado_em).toLocaleDateString('pt-BR')}</td>
                 <td>
-                  <span style="background:#fef3c7; color:#92400e; padding:3px 8px; border-radius:4px; font-size:0.7rem; font-weight:700;">
-                    PENDENTE
+                  <span style="background:${p.editado_em ? '#ffedd5' : '#fef3c7'}; color:${p.editado_em ? '#c2410c' : '#92400e'}; padding:3px 8px; border-radius:4px; font-size:0.7rem; font-weight:700;">
+                    ${p.editado_em ? 'REEDIÇÃO PENDENTE' : 'PENDENTE'}
                   </span>
                 </td>
                 <td>
-                  <div style="display:flex; gap:6px;">
+                  <div style="display:flex; gap:6px; flex-wrap:wrap;">
                     <button class="btn-approve" onclick="approvePublication(${p.id})">✓ Aprovar</button>
                     <button class="btn-reject" onclick="rejectPublication(${p.id})">✕ Reprovar</button>
+                    <button class="btn-outline btn-sm" onclick="openEditModal(${p.id})" title="Editar aviso como Administrador" style="padding:4px 8px;">✏️</button>
+                    <button class="btn-outline btn-sm" onclick="confirmDeletePublication(${p.id})" title="Excluir aviso como Administrador" style="padding:4px 8px; color:#b91c1c;">🗑️</button>
                   </div>
                 </td>
               </tr>
@@ -1492,10 +1618,12 @@ async function loginAs(email, senha) {
     });
 
     updateUserUI();
+    updateCashUI();
+    loadConversations();
     showToast(`Conectado: ${state.user.nome.split(' ')[0]} (${state.user.tipo})`, 'success');
 
     if (state.socket && state.user) {
-      state.socket.emit('registrar_usuario', { usuarioId: state.user.id, nome: state.user.nome });
+      socket.emit('registrar_usuario', { usuarioId: state.user.id, nome: state.user.nome });
     }
 
     if (state.activeView === 'feed') loadFeed();
@@ -1537,4 +1665,586 @@ function showToast(message, type = 'info') {
     toast.style.transform = 'translateY(10px)';
     setTimeout(() => toast.remove(), 250);
   }, 3800);
+}
+
+// ==========================================================================
+// SISTEMA DE CASH & CARTEIRA PONTOCASH
+// ==========================================================================
+async function updateCashUI() {
+  if (!state.token || !state.user) return;
+  try {
+    const res = await fetch(`${state.apiBase}/usuarios/carteira`, {
+      headers: { 'Authorization': `Bearer ${state.token}` }
+    });
+    if (res.ok) {
+      const data = await res.json();
+      state.user.saldo_cash = data.saldoCash;
+      localStorage.setItem('user', JSON.stringify(state.user));
+      const cashValEl = document.getElementById('headerCashVal');
+      if (cashValEl) cashValEl.innerText = parseFloat(data.saldoCash).toFixed(2);
+    }
+  } catch (e) {
+    console.warn('Erro ao atualizar saldo de cash:', e);
+  }
+}
+
+async function openWalletModal() {
+  if (!state.token) {
+    showToast('Conecte-se para acessar sua carteira PontoCash.', 'info');
+    openAuthModal();
+    return;
+  }
+
+  const modal = document.getElementById('walletModal');
+  const balanceEl = document.getElementById('walletModalBalance');
+  const historyList = document.getElementById('walletHistoryList');
+
+  document.body.classList.add('modal-open');
+  modal.classList.add('active');
+
+  balanceEl.innerText = parseFloat(state.user?.saldo_cash || '0').toFixed(2);
+  historyList.innerHTML = '<div style="padding:16px; text-align:center; color:#64748b; font-size:0.85rem;">Carregando extrato...</div>';
+
+  try {
+    const res = await fetch(`${state.apiBase}/usuarios/carteira`, {
+      headers: { 'Authorization': `Bearer ${state.token}` }
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error);
+
+    balanceEl.innerText = parseFloat(data.saldoCash || 0).toFixed(2);
+    state.user.saldo_cash = data.saldoCash;
+    localStorage.setItem('user', JSON.stringify(state.user));
+
+    const cashValEl = document.getElementById('headerCashVal');
+    if (cashValEl) cashValEl.innerText = parseFloat(data.saldoCash).toFixed(2);
+
+    const transacoes = data.transacoes || [];
+    if (transacoes.length === 0) {
+      historyList.innerHTML = '<div style="padding:16px; text-align:center; color:#64748b; font-size:0.8rem;">Nenhuma movimentação realizada ainda.</div>';
+      return;
+    }
+
+    historyList.innerHTML = transacoes.map(t => {
+      const valNum = parseFloat(t.valor);
+      const isPos = valNum >= 0;
+      return `
+        <div class="wallet-history-item">
+          <div>
+            <div class="wallet-history-desc">${escapeHtml(t.descricao || t.tipo)}</div>
+            <small style="color:var(--text-subtle); font-size:0.7rem;">${new Date(t.criado_em).toLocaleDateString('pt-BR')} ${new Date(t.criado_em).toLocaleTimeString('pt-BR', { hour:'2-digit', minute:'2-digit' })}</small>
+          </div>
+          <div class="wallet-history-val ${isPos ? 'positive' : 'negative'}">
+            ${isPos ? '+' : ''}${valNum.toFixed(2)} Cash
+          </div>
+        </div>
+      `;
+    }).join('');
+  } catch (err) {
+    historyList.innerHTML = `<div style="padding:12px; color:red; font-size:0.8rem;">Erro ao carregar histórico: ${err.message}</div>`;
+  }
+}
+
+function closeWalletModal() {
+  const modal = document.getElementById('walletModal');
+  if (modal) modal.classList.remove('active');
+  document.body.classList.remove('modal-open');
+}
+
+async function executeBuyCash(quantia) {
+  if (!state.token) return;
+  try {
+    const res = await fetch(`${state.apiBase}/usuarios/comprar-cash`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${state.token}`
+      },
+      body: JSON.stringify({ valor: quantia, metodo: 'PIX Instantâneo Simulado' })
+    });
+
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error);
+
+    showToast(data.message, 'success');
+    playNotificationChime();
+    state.user.saldo_cash = data.saldoCash;
+    localStorage.setItem('user', JSON.stringify(state.user));
+
+    const headerVal = document.getElementById('headerCashVal');
+    if (headerVal) headerVal.innerText = parseFloat(data.saldoCash).toFixed(2);
+
+    openWalletModal();
+  } catch (err) {
+    showToast(`Erro na recarga: ${err.message}`, 'error');
+  }
+}
+
+async function confirmDestacarPublication(pubId) {
+  if (!state.token) {
+    showToast('Conecte-se para impulsionar sua publicação.', 'info');
+    openAuthModal();
+    return;
+  }
+
+  const confirmou = await showCustomDialog({
+    title: '⭐ Impulsionar Publicação com PontoCash',
+    message: 'Deseja destacar esta publicação com o selo dourado no topo do feed por 7 dias? Custo: 15.00 PontoCash.',
+    confirmText: 'Confirmar Destaque (15 Cash)',
+    cancelText: 'Cancelar'
+  });
+
+  if (!confirmou) return;
+
+  try {
+    const res = await fetch(`${state.apiBase}/publicacoes/${pubId}/destacar`, {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${state.token}` }
+    });
+    const data = await res.json();
+
+    if (!res.ok) {
+      if (data.saldoAtual !== undefined) {
+        const querRecarregar = await showCustomDialog({
+          title: 'Saldo Insuficiente de PontoCash',
+          message: data.error,
+          confirmText: 'Recarregar Agora',
+          cancelText: 'Cancelar'
+        });
+        if (querRecarregar) openWalletModal();
+        return;
+      }
+      throw new Error(data.error);
+    }
+
+    showToast(data.message, 'success');
+    playNotificationChime();
+    state.user.saldo_cash = data.novoSaldo;
+    localStorage.setItem('user', JSON.stringify(state.user));
+    const headerVal = document.getElementById('headerCashVal');
+    if (headerVal) headerVal.innerText = parseFloat(data.novoSaldo).toFixed(2);
+
+    loadFeed();
+  } catch (err) {
+    showToast(`Erro ao destacar: ${err.message}`, 'error');
+  }
+}
+
+// ==========================================================================
+// EDIÇÃO E EXCLUSÃO DE PUBLICAÇÕES (ADMIN & AUTOR)
+// ==========================================================================
+async function openEditModal(pubId) {
+  if (!state.token) {
+    showToast('Conecte-se para editar publicações.', 'info');
+    openAuthModal();
+    return;
+  }
+
+  try {
+    const res = await fetch(`${state.apiBase}/publicacoes/${pubId}`, {
+      headers: { 'Authorization': `Bearer ${state.token}` }
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error);
+
+    const pub = data.publicacao;
+    document.getElementById('editPubId').value = pub.id;
+    document.getElementById('editPubTitulo').value = pub.titulo;
+    document.getElementById('editPubCategoria').value = pub.categoria_chave;
+    document.getElementById('editPubDescricao').value = pub.descricao;
+    document.getElementById('editPubEndereco').value = pub.endereco;
+    document.getElementById('editPubWhatsapp').value = pub.contato_whatsapp || '';
+    document.getElementById('editPubImagem').value = pub.imagem_url || '';
+
+    if (pub.data_inicio) {
+      document.getElementById('editPubDataInicio').value = pub.data_inicio.split('T')[0];
+    }
+    if (pub.data_fim) {
+      document.getElementById('editPubDataFim').value = pub.data_fim.split('T')[0];
+    }
+
+    const notice = document.getElementById('editPubReapprovalNotice');
+    const isAdmin = state.user && state.user.tipo === 'ADMIN';
+    if (notice) {
+      notice.style.display = isAdmin ? 'none' : 'block';
+    }
+
+    const heading = document.getElementById('editModalHeading');
+    if (heading) {
+      heading.innerText = isAdmin ? '✏️ Editar Publicação (Administrador)' : '✏️ Editar Minha Publicação';
+    }
+
+    const modal = document.getElementById('editPubModal');
+    document.body.classList.add('modal-open');
+    modal.classList.add('active');
+  } catch (err) {
+    showToast(`Erro ao carregar dados da publicação: ${err.message}`, 'error');
+  }
+}
+
+function closeEditModal() {
+  const modal = document.getElementById('editPubModal');
+  if (modal) modal.classList.remove('active');
+  document.body.classList.remove('modal-open');
+}
+
+async function submitEditPublication(e) {
+  e.preventDefault();
+  if (!state.token) return;
+
+  const id = document.getElementById('editPubId').value;
+  const titulo = document.getElementById('editPubTitulo').value;
+  const categoria_chave = document.getElementById('editPubCategoria').value;
+  const descricao = document.getElementById('editPubDescricao').value;
+  const endereco = document.getElementById('editPubEndereco').value;
+  const data_inicio = document.getElementById('editPubDataInicio').value;
+  const data_fim = document.getElementById('editPubDataFim').value;
+  const contato_whatsapp = document.getElementById('editPubWhatsapp').value;
+  const imagem_url = document.getElementById('editPubImagem').value;
+
+  try {
+    const res = await fetch(`${state.apiBase}/publicacoes/${id}`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${state.token}`
+      },
+      body: JSON.stringify({
+        titulo,
+        categoria_chave,
+        descricao,
+        endereco,
+        data_inicio,
+        data_fim,
+        contato_whatsapp,
+        imagem_url
+      })
+    });
+
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error);
+
+    showToast(data.message, 'success');
+    closeEditModal();
+    loadFeed();
+    if (state.activeView === 'moderacao') loadModerationData();
+  } catch (err) {
+    showToast(`Erro ao salvar edição: ${err.message}`, 'error');
+  }
+}
+
+async function confirmDeletePublication(pubId) {
+  if (!state.token) return;
+
+  const confirmou = await showCustomDialog({
+    title: '🗑️ Excluir Publicação',
+    message: 'Tem certeza que deseja excluir esta publicação? Esta ação é definitiva e removerá o aviso da comunidade.',
+    confirmText: 'Sim, Excluir Definitivamente',
+    cancelText: 'Cancelar',
+    isDanger: true
+  });
+
+  if (!confirmou) return;
+
+  try {
+    const res = await fetch(`${state.apiBase}/publicacoes/${pubId}`, {
+      method: 'DELETE',
+      headers: { 'Authorization': `Bearer ${state.token}` }
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error);
+
+    showToast(data.message, 'info');
+    loadFeed();
+    if (state.activeView === 'moderacao') loadModerationData();
+  } catch (err) {
+    showToast(`Erro ao excluir publicação: ${err.message}`, 'error');
+  }
+}
+
+// ==========================================================================
+// SISTEMA DE CHAT EM TEMPO REAL
+// ==========================================================================
+async function loadConversations() {
+  const listEl = document.getElementById('chatConversationsList');
+  if (!listEl) return;
+
+  if (!state.token) {
+    listEl.innerHTML = `
+      <div class="chat-empty-state">
+        <div class="chat-empty-icon">🔒</div>
+        <h4>Faça login para ver suas mensagens</h4>
+        <button class="btn-primary" onclick="openAuthModal()" style="margin-top:8px;">Entrar na Conta</button>
+      </div>
+    `;
+    return;
+  }
+
+  listEl.innerHTML = '<div style="padding:16px; text-align:center; color:#64748b; font-size:0.85rem;">Carregando conversas...</div>';
+
+  try {
+    const res = await fetch(`${state.apiBase}/chat/conversas`, {
+      headers: { 'Authorization': `Bearer ${state.token}` }
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error);
+
+    const conversas = data.conversas || [];
+
+    // Contagem total de não lidas
+    let totalNaoLidas = 0;
+    conversas.forEach(c => totalNaoLidas += parseInt(c.nao_lidas || 0, 10));
+    updateChatBadgeUI(totalNaoLidas);
+
+    if (conversas.length === 0) {
+      listEl.innerHTML = `
+        <div style="padding:28px 16px; text-align:center; color:#64748b; font-size:0.84rem;">
+          <div style="font-size:2.2rem; margin-bottom:8px;">💬</div>
+          <strong>Nenhuma conversa iniciada</strong>
+          <p style="margin-top:6px; line-height:1.4;">Clique em <strong>"💬 Chat"</strong> em qualquer publicação para tirar dúvidas diretamente com o anunciante.</p>
+        </div>
+      `;
+      return;
+    }
+
+    listEl.innerHTML = conversas.map(c => {
+      const isActive = state.activeConversationId === c.id;
+      const dataFormatada = c.ultima_mensagem_data
+        ? new Date(c.ultima_mensagem_data).toLocaleDateString('pt-BR', { day:'2-digit', month:'2-digit' })
+        : '';
+      const naoLidas = parseInt(c.nao_lidas || 0, 10);
+      const avatarIcon = c.contato_tipo === 'ORGANIZACAO' ? '🏢' : c.contato_tipo === 'ADMIN' ? '🛡️' : '👤';
+
+      return `
+        <div class="chat-conversa-item ${isActive ? 'active' : ''}" onclick="openConversation(${c.id})">
+          <div class="chat-avatar">
+            ${avatarIcon}
+          </div>
+          <div class="chat-conversa-info">
+            <div class="chat-conversa-top">
+              <strong>${escapeHtml(c.contato_nome)}</strong>
+              <span class="chat-conversa-date">${dataFormatada}</span>
+            </div>
+            <div class="chat-conversa-snippet">
+              ${c.ultima_mensagem ? escapeHtml(c.ultima_mensagem) : '<em style="color:var(--text-subtle)">Sem mensagens ainda</em>'}
+            </div>
+            ${c.publicacao_titulo ? `
+              <div class="chat-conversa-pub-tag">
+                📌 ${escapeHtml(c.publicacao_titulo)}
+              </div>
+            ` : ''}
+          </div>
+          ${naoLidas > 0 ? `<span class="chat-unread-badge">${naoLidas}</span>` : ''}
+        </div>
+      `;
+    }).join('');
+  } catch (err) {
+    listEl.innerHTML = `<div style="padding:16px; color:red; font-size:0.82rem;">Erro ao carregar conversas: ${err.message}</div>`;
+  }
+}
+
+function updateChatBadgeUI(count) {
+  const badgeDesk = document.getElementById('chatBadgeDesktop');
+  const badgeMob = document.getElementById('chatBadgeMobile');
+
+  [badgeDesk, badgeMob].forEach(el => {
+    if (el) {
+      if (count > 0) {
+        el.innerText = count > 99 ? '99+' : count;
+        el.style.display = 'inline-block';
+      } else {
+        el.style.display = 'none';
+      }
+    }
+  });
+}
+
+async function openConversation(conversaId) {
+  state.activeConversationId = conversaId;
+
+  const chatContainer = document.querySelector('.chat-container');
+  if (chatContainer) chatContainer.classList.add('mobile-active-chat');
+
+  if (state.socket) {
+    state.socket.emit('entrar_conversa', { conversaId });
+  }
+
+  // Atualiza classe ativa na lista lateral
+  document.querySelectorAll('.chat-conversa-item').forEach(el => el.classList.remove('active'));
+
+  const emptyState = document.getElementById('chatEmptyState');
+  const activeArea = document.getElementById('chatActiveArea');
+  if (emptyState) emptyState.style.display = 'none';
+  if (activeArea) activeArea.style.display = 'flex';
+
+  const messagesContainer = document.getElementById('chatMessagesContainer');
+  messagesContainer.innerHTML = '<div style="padding:20px; text-align:center; color:#64748b; font-size:0.84rem;">Carregando mensagens...</div>';
+
+  try {
+    const res = await fetch(`${state.apiBase}/chat/conversas/${conversaId}/mensagens`, {
+      headers: { 'Authorization': `Bearer ${state.token}` }
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error);
+
+    state.activeConversationData = data.conversa;
+
+    const outro = data.conversa.outroUsuario;
+    document.getElementById('chatActiveName').innerText = outro.nome;
+    document.getElementById('chatActiveType').innerText = outro.tipo;
+    document.getElementById('chatActiveAvatar').innerText = outro.tipo === 'ORGANIZACAO' ? '🏢' : outro.tipo === 'ADMIN' ? '🛡️' : '👤';
+
+    const pubInfo = document.getElementById('chatActivePubInfo');
+    if (data.conversa.publicacao_titulo) {
+      pubInfo.innerText = `📌 Sobre: ${data.conversa.publicacao_titulo}`;
+      pubInfo.style.display = 'inline-block';
+    } else {
+      pubInfo.style.display = 'none';
+    }
+
+    renderChatMessages(data.mensagens || []);
+    loadConversations();
+  } catch (err) {
+    messagesContainer.innerHTML = `<div style="padding:16px; color:red; font-size:0.84rem;">Erro ao carregar mensagens: ${err.message}</div>`;
+  }
+}
+
+function renderChatMessages(mensagens) {
+  const container = document.getElementById('chatMessagesContainer');
+  if (!container) return;
+
+  if (mensagens.length === 0) {
+    container.innerHTML = `
+      <div style="margin:auto; text-align:center; color:#64748b; font-size:0.85rem; padding:24px;">
+        <span style="font-size:2rem; display:block; margin-bottom:8px;">👋</span>
+        Inicie a conversa enviando uma mensagem no campo abaixo!
+      </div>
+    `;
+    return;
+  }
+
+  container.innerHTML = mensagens.map(m => {
+    const isMine = state.user && m.id_remetente === state.user.id;
+    const hora = new Date(m.criado_em).toLocaleTimeString('pt-BR', { hour:'2-digit', minute:'2-digit' });
+    return `
+      <div class="chat-msg ${isMine ? 'mine' : 'theirs'}">
+        ${!isMine ? `<span class="chat-msg-author">${escapeHtml(m.remetente_nome)}</span>` : ''}
+        <div class="chat-msg-bubble">${escapeHtml(m.conteudo)}</div>
+        <span class="chat-msg-time">${hora}</span>
+      </div>
+    `;
+  }).join('');
+
+  container.scrollTop = container.scrollHeight;
+}
+
+function closeActiveChatOnMobile() {
+  const chatContainer = document.querySelector('.chat-container');
+  if (chatContainer) chatContainer.classList.remove('mobile-active-chat');
+  state.activeConversationId = null;
+}
+
+async function submitChatMessage(e) {
+  e.preventDefault();
+  if (!state.token || !state.activeConversationId) return;
+
+  const input = document.getElementById('chatMessageInput');
+  const conteudo = input.value.trim();
+  if (!conteudo) return;
+
+  input.value = '';
+  input.focus();
+
+  try {
+    const res = await fetch(`${state.apiBase}/chat/conversas/${state.activeConversationId}/mensagens`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${state.token}`
+      },
+      body: JSON.stringify({ conteudo })
+    });
+
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error);
+
+    appendMessageToThread(data.mensagem);
+    loadConversations();
+  } catch (err) {
+    showToast(`Erro ao enviar mensagem: ${err.message}`, 'error');
+  }
+}
+
+function appendMessageToThread(mensagem) {
+  const container = document.getElementById('chatMessagesContainer');
+  if (!container) return;
+
+  // Se houver tela de boas-vindas vazia, limpa antes de inserir
+  if (container.querySelector('.chat-msg') === null) {
+    container.innerHTML = '';
+  }
+
+  const isMine = state.user && mensagem.id_remetente === state.user.id;
+  const hora = new Date(mensagem.criado_em).toLocaleTimeString('pt-BR', { hour:'2-digit', minute:'2-digit' });
+
+  const msgEl = document.createElement('div');
+  msgEl.className = `chat-msg ${isMine ? 'mine' : 'theirs'}`;
+  msgEl.innerHTML = `
+    ${!isMine ? `<span class="chat-msg-author">${escapeHtml(mensagem.remetente_nome)}</span>` : ''}
+    <div class="chat-msg-bubble">${escapeHtml(mensagem.conteudo)}</div>
+    <span class="chat-msg-time">${hora}</span>
+  `;
+  container.appendChild(msgEl);
+  container.scrollTop = container.scrollHeight;
+}
+
+function handleIncomingChatMessage(dados) {
+  const { conversaId, mensagem } = dados;
+
+  if (state.user && mensagem.id_remetente === state.user.id) return;
+
+  playNotificationChime();
+
+  if (state.activeConversationId === conversaId) {
+    appendMessageToThread(mensagem);
+    // Atualiza status de lida no servidor
+    fetch(`${state.apiBase}/chat/conversas/${conversaId}/mensagens`, {
+      headers: { 'Authorization': `Bearer ${state.token}` }
+    }).catch(() => {});
+  } else {
+    showToast(`💬 ${mensagem.remetente_nome}: "${mensagem.conteudo.substring(0, 32)}..."`, 'info');
+    loadConversations();
+  }
+}
+
+async function startChatWithUser(targetUserId, pubId, authorName, pubTitle) {
+  if (!state.token) {
+    showToast('Faça login para conversar.', 'info');
+    openAuthModal();
+    return;
+  }
+
+  if (state.user && state.user.id === targetUserId) {
+    showToast('Você é o próprio autor desta publicação.', 'info');
+    return;
+  }
+
+  try {
+    const res = await fetch(`${state.apiBase}/chat/iniciar`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${state.token}`
+      },
+      body: JSON.stringify({ destinatario_id: targetUserId, id_publicacao: pubId })
+    });
+
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error);
+
+    switchView('chat');
+    await openConversation(data.conversa.id);
+  } catch (err) {
+    showToast(`Erro ao abrir conversa: ${err.message}`, 'error');
+  }
 }

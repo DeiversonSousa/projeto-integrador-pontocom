@@ -1,0 +1,20 @@
+{
+  "name": "PontoCom • Notificações Comunitárias",
+  "short_name": "PontoCom",
+  "description": "Comunicação comunitária, serviços locais e ações de utilidade pública por geolocalização dinâmica.",
+  "start_url": "/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#00377a",
+  "theme_color": "#004fb0",
+  "lang": "pt-BR",
+  "icons": [
+    {
+      "src": "img/icon.svg",
+      "sizes": "192x192 512x512",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
+

@@ -8,6 +8,7 @@
 
   <!-- Favicon do PontoCom -->
   <link rel="icon" type="image/svg+xml" href="img/icon.svg">
+  <link rel="manifest" href="manifest.json">
 
   <!-- Leaflet CSS para o Mapa Geoespacial -->
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
@@ -50,6 +51,11 @@
           <svg fill="currentColor" viewBox="0 0 24 24"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>
           <span>Favoritos</span>
         </button>
+        <button class="nav-item" data-view="chat" id="navItemChatDesktop">
+          <svg fill="currentColor" viewBox="0 0 24 24"><path d="M20 2H4c-1.1 0-1.99.9-1.99 2L2 22l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zM6 9h12v2H6V9zm8 5H6v-2h8v2zm4-6H6V6h12v2z"/></svg>
+          <span>Chat</span>
+          <span id="chatBadgeDesktop" class="chat-nav-badge" style="display:none;">0</span>
+        </button>
         <button id="navItemNovaPubDesktop" class="nav-item" data-view="novapub" style="display:none;">
           <svg fill="currentColor" viewBox="0 0 24 24"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>
           <span>Publicar</span>
@@ -65,6 +71,14 @@
       </nav>
 
       <div class="header-actions">
+        <button id="themeToggleBtn" class="theme-toggle-btn" onclick="toggleDarkMode()" title="Alternar Modo Escuro / Claro">
+          <span id="themeToggleIcon">🌙</span>
+        </button>
+        <div id="cashPill" class="cash-pill" onclick="openWalletModal()" title="Minha Carteira PontoCash">
+          <span class="cash-icon">🪙</span>
+          <span id="headerCashVal">0.00</span>
+          <span class="cash-lbl">Cash</span>
+        </div>
         <div id="wsIndicator" class="ws-indicator" title="Conexão em Tempo Real">
           <span class="ws-dot"></span>
           <span class="ws-label">Ao Vivo</span>
@@ -435,6 +449,74 @@
       </div>
     </section>
 
+    <!-- VISÃO 7: SISTEMA DE CHAT EM TEMPO REAL -->
+    <section id="view-chat" class="view-section">
+      <div class="chat-container">
+        <!-- Sidebar de Conversas -->
+        <div class="chat-sidebar" id="chatSidebar">
+          <div class="chat-sidebar-header">
+            <div class="chat-title-row">
+              <h3>💬 Conversas</h3>
+              <button class="btn-refresh btn-sm" onclick="loadConversations()" title="Atualizar conversas">
+                🔄
+              </button>
+            </div>
+            <p class="chat-subtitle">Converse com prestadores, organizações e vizinhos</p>
+          </div>
+          <div class="chat-conversations-list" id="chatConversationsList">
+            <!-- Lista renderizada dinamicamente -->
+          </div>
+        </div>
+
+        <!-- Painel da Conversa Ativa -->
+        <div class="chat-main" id="chatMain">
+          <div id="chatEmptyState" class="chat-empty-state">
+            <div class="chat-empty-icon">💬</div>
+            <h4>Suas Mensagens Comunitárias</h4>
+            <p>Selecione uma conversa ao lado ou clique no botão <strong>"💬 Conversar"</strong> em qualquer publicação para falar diretamente com o autor ou prestador de serviço.</p>
+          </div>
+
+          <div id="chatActiveArea" class="chat-active-area" style="display:none;">
+            <div class="chat-active-header">
+              <button class="chat-back-btn" onclick="closeActiveChatOnMobile()" title="Voltar à lista">
+                ←
+              </button>
+              <div class="chat-active-contact">
+                <div class="chat-avatar" id="chatActiveAvatar">👤</div>
+                <div>
+                  <h4 id="chatActiveName">Nome do Contato</h4>
+                  <div class="chat-active-meta">
+                    <span id="chatActiveType" class="badge-role-sm">ORGANIZACAO</span>
+                    <span id="chatActivePubInfo" class="chat-pub-pill" style="display:none;"></span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="chat-messages-scroll" id="chatMessagesContainer">
+              <!-- Balões de mensagem -->
+            </div>
+
+            <form id="chatForm" class="chat-input-form" onsubmit="submitChatMessage(event)">
+              <input type="text" id="chatMessageInput" class="form-control" placeholder="Escreva sua mensagem..." autocomplete="off" required>
+              <button type="submit" class="btn-primary btn-chat-send">
+                <span>Enviar</span>
+                <svg fill="currentColor" viewBox="0 0 24 24" width="16" height="16"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg>
+              </button>
+            </form>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Rodapé Institucional -->
+    <footer class="app-footer">
+      <div class="footer-inner">
+        <p><strong>PontoCom</strong> • Projeto Integrador • <strong>SENAI FATESG</strong></p>
+        <span>Geolocalização dinâmica, proteção anti-spam e governança LGPD</span>
+      </div>
+    </footer>
+
   </main>
 
   <!-- Modal de Detalhes da Publicação -->
@@ -527,6 +609,119 @@
     </div>
   </div>
 
+  <!-- Modal de Edição de Publicação (Admin ou Autor) -->
+  <div id="editPubModal" class="modal-overlay" onclick="handleModalOverlayClick(event, 'editPubModal')">
+    <div class="modal-card modal-lg">
+      <div class="modal-header">
+        <h3 id="editModalHeading">✏️ Editar Publicação</h3>
+        <button class="modal-close" onclick="closeEditModal()">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div id="editPubReapprovalNotice" class="alert-box alert-warning" style="display:none; margin-bottom:16px;">
+          <strong>ℹ️ Reaprovação da Moderação:</strong> Como você é o autor (usuário/organização), ao salvar estas alterações o status retornará para <strong>PENDENTE</strong> e a publicação passará novamente pela aprovação do administrador antes de reaparecer no feed público.
+        </div>
+        <form id="formEditPub" onsubmit="submitEditPublication(event)">
+          <input type="hidden" id="editPubId">
+          <div class="form-group">
+            <label for="editPubTitulo">Título do Aviso ou Serviço *</label>
+            <input type="text" id="editPubTitulo" class="form-control" required maxlength="120">
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label for="editPubCategoria">Categoria *</label>
+              <select id="editPubCategoria" class="form-control" required>
+                <option value="SOCIAL">Social / Saúde / Utilidade Pública</option>
+                <option value="SERVICO">Serviço de Bairro / Autônomo</option>
+                <option value="PROMOCAO">Promoção / Comércio Local</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label for="editPubWhatsapp">WhatsApp para Contato</label>
+              <input type="text" id="editPubWhatsapp" class="form-control" maxlength="15">
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label for="editPubDescricao">Descrição Detalhada *</label>
+            <textarea id="editPubDescricao" class="form-control" required rows="4"></textarea>
+          </div>
+
+          <div class="form-group">
+            <label for="editPubEndereco">Endereço Completo do Local *</label>
+            <input type="text" id="editPubEndereco" class="form-control" required>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label for="editPubDataInicio">Data de Início *</label>
+              <input type="date" id="editPubDataInicio" class="form-control" required>
+            </div>
+            <div class="form-group">
+              <label for="editPubDataFim">Data de Expiração *</label>
+              <input type="date" id="editPubDataFim" class="form-control" required>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label for="editPubImagem">URL da Imagem de Divulgação (Opcional)</label>
+            <input type="url" id="editPubImagem" class="form-control" placeholder="https://exemplo.com/imagem.jpg">
+          </div>
+
+          <div class="modal-footer-actions">
+            <button type="button" class="btn-outline" onclick="closeEditModal()">Cancelar</button>
+            <button type="submit" class="btn-primary">
+              <span>💾</span> Salvar Alterações
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal de Carteira PontoCash & Impulsionamento -->
+  <div id="walletModal" class="modal-overlay" onclick="handleModalOverlayClick(event, 'walletModal')">
+    <div class="modal-card modal-md">
+      <div class="modal-header">
+        <h3>🪙 Minha Carteira PontoCash</h3>
+        <button class="modal-close" onclick="closeWalletModal()">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div class="wallet-balance-card">
+          <div class="wallet-balance-label">Saldo Disponível:</div>
+          <div class="wallet-balance-amount"><span id="walletModalBalance">0.00</span> <small>Cash</small></div>
+          <p class="wallet-balance-tip">Impulsione suas publicações no <strong>topo do feed regional</strong> por 7 dias com o selo dourado de DESTAQUE (Custo: 15.00 PontoCash).</p>
+        </div>
+
+        <div class="wallet-recharge-section">
+          <h4>⚡ Recarga Rápida de PontoCash (Simulação Instantânea)</h4>
+          <div class="recharge-buttons-grid">
+            <button class="btn-recharge" onclick="executeBuyCash(20)">
+              <span class="recharge-val">+ 20 Cash</span>
+              <span class="recharge-price">R$ 20,00</span>
+            </button>
+            <button class="btn-recharge featured" onclick="executeBuyCash(50)">
+              <span class="recharge-badge">Mais Popular</span>
+              <span class="recharge-val">+ 50 Cash</span>
+              <span class="recharge-price">R$ 45,00</span>
+            </button>
+            <button class="btn-recharge" onclick="executeBuyCash(100)">
+              <span class="recharge-val">+ 100 Cash</span>
+              <span class="recharge-price">R$ 80,00</span>
+            </button>
+          </div>
+        </div>
+
+        <div class="wallet-history-section">
+          <h4>📜 Extrato Recente</h4>
+          <div id="walletHistoryList" class="wallet-history-list">
+            <!-- Itens de extrato renderizados dinamicamente -->
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- Bottom Navigation Bar (Visível exclusivamente em telas mobile/tablets) -->
   <nav class="bottom-nav" id="bottomNav">
     <button class="nav-item active" data-view="feed">
@@ -540,6 +735,11 @@
     <button class="nav-item" data-view="favoritos">
       <svg fill="currentColor" viewBox="0 0 24 24"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>
       <span>Favoritos</span>
+    </button>
+    <button class="nav-item" data-view="chat" id="navItemChatMobile">
+      <svg fill="currentColor" viewBox="0 0 24 24"><path d="M20 2H4c-1.1 0-1.99.9-1.99 2L2 22l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zM6 9h12v2H6V9zm8 5H6v-2h8v2zm4-6H6V6h12v2z"/></svg>
+      <span>Chat</span>
+      <span id="chatBadgeMobile" class="chat-nav-badge" style="display:none;">0</span>
     </button>
     <button id="navItemNovaPub" class="nav-item" data-view="novapub" style="display:none;">
       <svg fill="currentColor" viewBox="0 0 24 24"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>

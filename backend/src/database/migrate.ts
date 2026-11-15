@@ -55,13 +55,13 @@ async function runMigrations() {
         chave VARCHAR(50) UNIQUE NOT NULL,
         nome VARCHAR(100) NOT NULL,
         descricao TEXT,
-        cor_badge VARCHAR(30) DEFAULT '#007BFF',
+        cor_badge VARCHAR(20) DEFAULT '#0056b3',
         icone VARCHAR(50) DEFAULT 'tag',
         criado_em TIMESTAMP WITH TIME ZONE DEFAULT NOW()
       );
     `);
 
-    // 4. Tabela de Usuários (Cidadão, Organização, Administrador)
+    // 4. Tabela de Usuários (Moradores, Organizações e Administradores)
     await query(`
       CREATE TABLE IF NOT EXISTS usuarios (
         id SERIAL PRIMARY KEY,
@@ -77,10 +77,16 @@ async function runMigrations() {
         raio_alcance_km DOUBLE PRECISION DEFAULT 5.0, -- Slider de raio ajustável
         limite_diario_notificacoes INT DEFAULT 5,    -- Cota anti-fadiga de notificações
         categorias_interesse TEXT[] DEFAULT ARRAY['SERVICO', 'PROMOCAO', 'SOCIAL'],
+        saldo_cash NUMERIC(10, 2) DEFAULT 50.00,      -- Saldo de PontoCash
         ativo BOOLEAN DEFAULT TRUE,
         criado_em TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
         atualizado_em TIMESTAMP WITH TIME ZONE DEFAULT NOW()
       );
+    `);
+
+    // Adiciona saldo_cash caso a tabela já exista
+    await query(`
+      ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS saldo_cash NUMERIC(10, 2) DEFAULT 50.00;
     `);
 
     // 5. Tabela de Publicações (Avisos, Ofertas, Projetos Sociais)
@@ -104,18 +110,29 @@ async function runMigrations() {
         imagem_url TEXT,
         status VARCHAR(50) DEFAULT 'PENDENTE', -- PENDENTE, APROVADO, REPROVADO
         motivo_reprovacao TEXT,
+        destaque BOOLEAN DEFAULT FALSE,         -- Impulsionamento Cash
+        destaque_ate TIMESTAMP WITH TIME ZONE,
+        editado_em TIMESTAMP WITH TIME ZONE,
         id_autor INT NOT NULL REFERENCES usuarios(id) ON DELETE CASCADE,
         criado_em TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
         atualizado_em TIMESTAMP WITH TIME ZONE DEFAULT NOW()
       );
     `);
 
-    // 6. Índices para performance espacial e temporal
+    // Adiciona colunas de destaque e edição se tabela já existir
+    await query(`
+      ALTER TABLE publicacoes ADD COLUMN IF NOT EXISTS destaque BOOLEAN DEFAULT FALSE;
+      ALTER TABLE publicacoes ADD COLUMN IF NOT EXISTS destaque_ate TIMESTAMP WITH TIME ZONE;
+      ALTER TABLE publicacoes ADD COLUMN IF NOT EXISTS editado_em TIMESTAMP WITH TIME ZONE;
+    `);
+
+    // 6. Índices para performance espacial, temporal e destaques
     await query(`
       CREATE INDEX IF NOT EXISTS idx_publicacoes_coords ON publicacoes(latitude, longitude);
       CREATE INDEX IF NOT EXISTS idx_publicacoes_status ON publicacoes(status);
       CREATE INDEX IF NOT EXISTS idx_publicacoes_vigencia ON publicacoes(data_inicio, data_fim);
       CREATE INDEX IF NOT EXISTS idx_publicacoes_categoria ON publicacoes(categoria_chave);
+      CREATE INDEX IF NOT EXISTS idx_publicacoes_destaque ON publicacoes(destaque, destaque_ate);
     `);
 
     // 7. Tabela de Histórico de Notificações Disparadas (Anti-Spam / Cota Diária)
@@ -138,7 +155,7 @@ async function runMigrations() {
         id_publicacao INT NOT NULL REFERENCES publicacoes(id) ON DELETE CASCADE,
         id_usuario INT NOT NULL REFERENCES usuarios(id) ON DELETE CASCADE,
         motivo TEXT NOT NULL,
-        status VARCHAR(50) DEFAULT 'PENDENTE', -- PENDENTE, ANALISADA, DESCARTADA
+        status VARCHAR(50) DEFAULT 'PENDENTE', -- PENDENTE, RESOLVIDA, DESCARTADA
         criado_em TIMESTAMP WITH TIME ZONE DEFAULT NOW()
       );
     `);
@@ -153,7 +170,47 @@ async function runMigrations() {
       );
     `);
 
-    console.log('🎉 Todas as tabelas e índices foram criados com sucesso!');
+    // 10. Tabela de Transações de Cash (Sistema de Impulsionamento)
+    await query(`
+      CREATE TABLE IF NOT EXISTS transacoes_cash (
+        id SERIAL PRIMARY KEY,
+        id_usuario INT NOT NULL REFERENCES usuarios(id) ON DELETE CASCADE,
+        tipo VARCHAR(50) NOT NULL, -- RECARGA, DESTAQUE_POST, BONUS
+        valor NUMERIC(10, 2) NOT NULL,
+        descricao TEXT,
+        criado_em TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+      );
+      CREATE INDEX IF NOT EXISTS idx_transacoes_usuario ON transacoes_cash(id_usuario, criado_em);
+    `);
+
+    // 11. Tabela de Conversas (Chat em Tempo Real)
+    await query(`
+      CREATE TABLE IF NOT EXISTS conversas (
+        id SERIAL PRIMARY KEY,
+        id_publicacao INT REFERENCES publicacoes(id) ON DELETE SET NULL,
+        id_cidadao INT NOT NULL REFERENCES usuarios(id) ON DELETE CASCADE,
+        id_anunciante INT NOT NULL REFERENCES usuarios(id) ON DELETE CASCADE,
+        criado_em TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+        atualizado_em TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+        CONSTRAINT uq_conversa UNIQUE (id_publicacao, id_cidadao, id_anunciante)
+      );
+      CREATE INDEX IF NOT EXISTS idx_conversas_participantes ON conversas(id_cidadao, id_anunciante);
+    `);
+
+    // 12. Tabela de Mensagens do Chat
+    await query(`
+      CREATE TABLE IF NOT EXISTS mensagens_chat (
+        id SERIAL PRIMARY KEY,
+        id_conversa INT NOT NULL REFERENCES conversas(id) ON DELETE CASCADE,
+        id_remetente INT NOT NULL REFERENCES usuarios(id) ON DELETE CASCADE,
+        conteudo TEXT NOT NULL,
+        lida BOOLEAN DEFAULT FALSE,
+        criado_em TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+      );
+      CREATE INDEX IF NOT EXISTS idx_mensagens_conversa ON mensagens_chat(id_conversa, criado_em);
+    `);
+
+    console.log('🎉 Todas as tabelas, índices e novos sistemas (Cash e Chat) foram migrados com sucesso!');
   } catch (error) {
     console.error('❌ Erro executando migrações:', error);
     process.exit(1);
@@ -163,4 +220,3 @@ async function runMigrations() {
 }
 
 runMigrations();
-

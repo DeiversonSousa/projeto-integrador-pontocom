@@ -139,5 +139,93 @@ export class UserController {
       res.status(500).json({ error: 'Erro interno.' });
     }
   }
+
+  /**
+   * Consultar carteira de PontoCash do usuário (saldo e histórico de transações)
+   */
+  static async getWallet(req: AuthRequest, res: Response): Promise<void> {
+    try {
+      if (!req.user) {
+        res.status(401).json({ error: 'Não autenticado.' });
+        return;
+      }
+
+      const userRes = await query(
+        'SELECT id, nome, email, saldo_cash FROM usuarios WHERE id = $1',
+        [req.user.id]
+      );
+
+      if (userRes.rowCount === 0) {
+        res.status(404).json({ error: 'Usuário não encontrado.' });
+        return;
+      }
+
+      const saldo = parseFloat(userRes.rows[0].saldo_cash || '0');
+
+      const transacoesRes = await query(`
+        SELECT id, tipo, valor, descricao, criado_em
+        FROM transacoes_cash
+        WHERE id_usuario = $1
+        ORDER BY criado_em DESC
+        LIMIT 30;
+      `, [req.user.id]);
+
+      res.json({
+        saldoCash: saldo,
+        transacoes: transacoesRes.rows
+      });
+    } catch (error: any) {
+      console.error('Erro ao consultar carteira de cash:', error);
+      res.status(500).json({ error: 'Erro interno ao consultar carteira de cash.' });
+    }
+  }
+
+  /**
+   * Recarregar saldo de PontoCash
+   */
+  static async buyCash(req: AuthRequest, res: Response): Promise<void> {
+    try {
+      if (!req.user) {
+        res.status(401).json({ error: 'Não autenticado.' });
+        return;
+      }
+
+      const { valor, metodo } = req.body;
+      const quantia = parseFloat(valor);
+
+      if (isNaN(quantia) || quantia <= 0) {
+        res.status(400).json({ error: 'Informe um valor válido de recarga maior que zero.' });
+        return;
+      }
+
+      // Atualizar saldo do usuário
+      const updateRes = await query(`
+        UPDATE usuarios
+        SET saldo_cash = saldo_cash + $1, atualizado_em = NOW()
+        WHERE id = $2
+        RETURNING saldo_cash;
+      `, [quantia, req.user.id]);
+
+      const novoSaldo = parseFloat(updateRes.rows[0].saldo_cash);
+
+      // Registrar transação de recarga
+      await query(`
+        INSERT INTO transacoes_cash (id_usuario, tipo, valor, descricao)
+        VALUES ($1, 'RECARGA', $2, $3)
+      `, [
+        req.user.id,
+        quantia,
+        `Recarga de saldo via ${metodo || 'PIX Simulado'} (+${quantia.toFixed(2)} PontoCash)`
+      ]);
+
+      res.json({
+        message: `🎉 Recarga de ${quantia.toFixed(2)} PontoCash realizada com sucesso!`,
+        saldoCash: novoSaldo
+      });
+    } catch (error: any) {
+      console.error('Erro ao recarregar cash:', error);
+      res.status(500).json({ error: 'Erro interno ao processar recarga de cash.' });
+    }
+  }
 }
 

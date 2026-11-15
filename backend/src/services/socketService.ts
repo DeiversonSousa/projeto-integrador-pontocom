@@ -24,6 +24,21 @@ export class SocketService {
         }
       });
 
+      // Salas de conversas específicas para chat em tempo real
+      socket.on('entrar_conversa', (dados: { conversaId: number }) => {
+        if (dados && dados.conversaId) {
+          const room = `conversa_${dados.conversaId}`;
+          socket.join(room);
+        }
+      });
+
+      socket.on('sair_conversa', (dados: { conversaId: number }) => {
+        if (dados && dados.conversaId) {
+          const room = `conversa_${dados.conversaId}`;
+          socket.leave(room);
+        }
+      });
+
       socket.on('disconnect', () => {
         console.log(`🔌 Cliente WebSocket desconectado: ${socket.id}`);
       });
@@ -47,6 +62,23 @@ export class SocketService {
       const room = `usuario_${usuarioId}`;
       this.io.to(room).emit('notificacao_push', notificacao);
       console.log(`📲 Push disparado em tempo real para sala ${room}: "${notificacao.titulo}"`);
+    }
+  }
+
+  /**
+   * Envia mensagem de chat em tempo real para o destinatário e para a sala da conversa
+   */
+  static enviarMensagemChat(destinatarioId: number, conversaId: number, dadosMensagem: any): void {
+    if (this.io) {
+      this.io.to(`usuario_${destinatarioId}`).emit('nova_mensagem_chat', {
+        conversaId,
+        mensagem: dadosMensagem
+      });
+      this.io.to(`conversa_${conversaId}`).emit('nova_mensagem_chat', {
+        conversaId,
+        mensagem: dadosMensagem
+      });
+      console.log(`💬 Mensagem em tempo real disparada para conversa ${conversaId} e usuario_${destinatarioId}`);
     }
   }
 
