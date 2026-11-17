@@ -1232,7 +1232,7 @@ body.modal-open {
   align-items: center;
   position: sticky;
   top: 0;
-  background: white;
+  background: var(--bg-card);
   z-index: 10;
 }
 
@@ -1306,7 +1306,7 @@ body.modal-open {
   align-items: center;
   flex-wrap: wrap;
   gap: 8px;
-  background: #fafbfc;
+  background: var(--bg-card);
 }
 
 .card-header h3 {
@@ -2299,13 +2299,36 @@ body.modal-open {
 [data-theme="dark"] .controls-card,
 [data-theme="dark"] .pub-card,
 [data-theme="dark"] .content-card,
+[data-theme="dark"] .card-header,
 [data-theme="dark"] .modal-card,
+[data-theme="dark"] .modal-header,
 [data-theme="dark"] .chat-container,
 [data-theme="dark"] .chat-sidebar,
 [data-theme="dark"] .map-header-card {
-  background-color: #1e293b;
+  background-color: #1e293b !important;
   border-color: #334155;
   color: var(--text-main);
+}
+
+[data-theme="dark"] .card-header h3,
+[data-theme="dark"] .modal-header h3 {
+  color: #f8fafc !important;
+}
+
+[data-theme="dark"] .card-header p {
+  color: #94a3b8 !important;
+}
+
+[data-theme="dark"] .modal-close {
+  background-color: #0f172a;
+  border-color: #334155;
+  color: #f1f5f9;
+}
+
+[data-theme="dark"] .modal-close:hover {
+  background-color: #334155;
+  color: #ffffff;
+  border-color: #475569;
 }
 
 [data-theme="dark"] .pub-card-title,
@@ -2673,6 +2696,44 @@ body.modal-open {
 
 [data-theme="dark"] .search-input-wrap input:focus {
   background-color: #0f172a;
+}
+
+/* Carteira de Tokens no Modo Escuro */
+[data-theme="dark"] .btn-recharge {
+  background-color: #0f172a;
+  border-color: #334155;
+  color: #f1f5f9;
+}
+
+[data-theme="dark"] .btn-recharge:hover {
+  background-color: #1e293b;
+  border-color: #f59e0b;
+}
+
+[data-theme="dark"] .btn-recharge.featured {
+  background: linear-gradient(180deg, rgba(245, 158, 11, 0.15) 0%, #0f172a 100%);
+  border-color: #f59e0b;
+}
+
+[data-theme="dark"] .recharge-val {
+  color: #f59e0b;
+}
+
+[data-theme="dark"] .recharge-price {
+  color: #94a3b8;
+}
+
+[data-theme="dark"] .wallet-history-list {
+  background-color: #0f172a;
+  border-color: #334155;
+}
+
+[data-theme="dark"] .wallet-history-item {
+  border-bottom-color: #334155;
+}
+
+[data-theme="dark"] .wallet-history-desc {
+  color: #f1f5f9;
 }
 
 /* ==========================================================================
