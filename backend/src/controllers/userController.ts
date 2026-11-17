@@ -141,7 +141,7 @@ export class UserController {
   }
 
   /**
-   * Consultar carteira de PontoCash do usuário (saldo e histórico de transações)
+   * Consultar carteira de Tokens do usuário (saldo e histórico de transações)
    */
   static async getWallet(req: AuthRequest, res: Response): Promise<void> {
     try {
@@ -171,17 +171,18 @@ export class UserController {
       `, [req.user.id]);
 
       res.json({
+        saldoTokens: saldo,
         saldoCash: saldo,
         transacoes: transacoesRes.rows
       });
     } catch (error: any) {
-      console.error('Erro ao consultar carteira de cash:', error);
-      res.status(500).json({ error: 'Erro interno ao consultar carteira de cash.' });
+      console.error('Erro ao consultar carteira de tokens:', error);
+      res.status(500).json({ error: 'Erro interno ao consultar carteira de tokens.' });
     }
   }
 
   /**
-   * Recarregar saldo de PontoCash
+   * Recarregar saldo de Tokens
    */
   static async buyCash(req: AuthRequest, res: Response): Promise<void> {
     try {
@@ -215,16 +216,17 @@ export class UserController {
       `, [
         req.user.id,
         quantia,
-        `Recarga de saldo via ${metodo || 'PIX Simulado'} (+${quantia.toFixed(2)} PontoCash)`
+        `Recarga de saldo via ${metodo || 'PIX Simulado'} (+${quantia.toFixed(2)} Tokens)`
       ]);
 
       res.json({
-        message: `🎉 Recarga de ${quantia.toFixed(2)} PontoCash realizada com sucesso!`,
+        message: `🎉 Recarga de ${quantia.toFixed(2)} Tokens realizada com sucesso!`,
+        saldoTokens: novoSaldo,
         saldoCash: novoSaldo
       });
     } catch (error: any) {
-      console.error('Erro ao recarregar cash:', error);
-      res.status(500).json({ error: 'Erro interno ao processar recarga de cash.' });
+      console.error('Erro ao recarregar tokens:', error);
+      res.status(500).json({ error: 'Erro interno ao processar recarga de tokens.' });
     }
   }
 }

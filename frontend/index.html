@@ -73,10 +73,10 @@
       </nav>
 
       <div class="header-actions">
-        <div id="cashPill" class="cash-pill" onclick="openWalletModal()" title="Minha Carteira PontoCash">
+        <div id="cashPill" class="cash-pill" onclick="openWalletModal()" title="Minha Carteira de Tokens">
           <span class="cash-icon">🪙</span>
           <span id="headerCashVal">0.00</span>
-          <span class="cash-lbl">Cash</span>
+          <span class="cash-lbl">Tokens</span>
         </div>
         <div id="wsIndicator" class="ws-indicator" title="Conexão em Tempo Real">
           <span class="ws-dot"></span>
@@ -305,9 +305,44 @@
               </div>
             </div>
 
+            <!-- Seletor de Modo de Publicação (Normal vs Impulsionar com 15 Tokens) -->
+            <div class="form-group boost-selection-group">
+              <label class="form-section-label">⚡ Modo de Publicação</label>
+              <div class="boost-options-grid">
+                <label class="boost-option-card active" id="optionPubNormalCard">
+                  <input type="radio" name="modoPublicacao" id="modoPubNormal" value="normal" checked onchange="toggleBoostSelection(false)">
+                  <div class="boost-option-content">
+                    <div class="boost-option-title">
+                      <span class="boost-icon">📄</span>
+                      <strong>Publicar Normalmente</strong>
+                    </div>
+                    <p class="boost-option-desc">Aviso exibido no feed padrão por proximidade.</p>
+                    <span class="boost-badge free">Gratuito</span>
+                  </div>
+                </label>
+
+                <label class="boost-option-card" id="optionPubBoostCard">
+                  <input type="radio" name="modoPublicacao" id="modoPubBoost" value="boost" onchange="toggleBoostSelection(true)">
+                  <div class="boost-option-content">
+                    <div class="boost-option-title">
+                      <span class="boost-icon">⭐</span>
+                      <strong>Impulsionar Publicação</strong>
+                    </div>
+                    <p class="boost-option-desc">Fica no <strong>topo do feed regional</strong> com selo dourado de destaque por 7 dias.</p>
+                    <span class="boost-badge premium">🪙 15 Tokens</span>
+                  </div>
+                </label>
+              </div>
+
+              <div id="boostBalanceWarning" class="boost-balance-info" style="display: none;">
+                <span>Seu saldo: <strong id="newPubTokenBalance">0.00</strong> Tokens</span>
+                <span id="boostBalanceNotice"></span>
+              </div>
+            </div>
+
             <div class="form-actions">
-              <button type="submit" class="btn-primary btn-lg">
-                <span>🚀</span> Enviar para Moderação / Publicação
+              <button type="submit" id="btnSubmitPub" class="btn-primary btn-lg">
+                <span id="btnSubmitPubIcon">🚀</span> <span id="btnSubmitPubText">Publicar Normalmente</span>
               </button>
             </div>
           </form>
@@ -702,34 +737,34 @@
     </div>
   </div>
 
-  <!-- Modal de Carteira PontoCash & Impulsionamento -->
+  <!-- Modal de Carteira de Tokens & Impulsionamento -->
   <div id="walletModal" class="modal-overlay" onclick="handleModalOverlayClick(event, 'walletModal')">
     <div class="modal-card modal-md">
       <div class="modal-header">
-        <h3>🪙 Minha Carteira PontoCash</h3>
+        <h3>🪙 Minha Carteira de Tokens</h3>
         <button class="modal-close" onclick="closeWalletModal()">&times;</button>
       </div>
       <div class="modal-body">
         <div class="wallet-balance-card">
           <div class="wallet-balance-label">Saldo Disponível:</div>
-          <div class="wallet-balance-amount"><span id="walletModalBalance">0.00</span> <small>Cash</small></div>
-          <p class="wallet-balance-tip">Impulsione suas publicações no <strong>topo do feed regional</strong> por 7 dias com o selo dourado de DESTAQUE (Custo: 15.00 PontoCash).</p>
+          <div class="wallet-balance-amount"><span id="walletModalBalance">0.00</span> <small>Tokens</small></div>
+          <p class="wallet-balance-tip">Impulsione suas publicações no <strong>topo do feed regional</strong> por 7 dias com o selo dourado de DESTAQUE (Custo: 15 Tokens).</p>
         </div>
 
         <div class="wallet-recharge-section">
-          <h4>⚡ Recarga Rápida de PontoCash (Simulação Instantânea)</h4>
+          <h4>⚡ Recarga Rápida de Tokens (Simulação Instantânea)</h4>
           <div class="recharge-buttons-grid">
             <button class="btn-recharge" onclick="executeBuyCash(20)">
-              <span class="recharge-val">+ 20 Cash</span>
+              <span class="recharge-val">+ 20 Tokens</span>
               <span class="recharge-price">R$ 20,00</span>
             </button>
             <button class="btn-recharge featured" onclick="executeBuyCash(50)">
               <span class="recharge-badge">Mais Popular</span>
-              <span class="recharge-val">+ 50 Cash</span>
+              <span class="recharge-val">+ 50 Tokens</span>
               <span class="recharge-price">R$ 45,00</span>
             </button>
             <button class="btn-recharge" onclick="executeBuyCash(100)">
-              <span class="recharge-val">+ 100 Cash</span>
+              <span class="recharge-val">+ 100 Tokens</span>
               <span class="recharge-price">R$ 80,00</span>
             </button>
           </div>

@@ -157,7 +157,8 @@ export class PublicationController {
         contato_telefone,
         contato_whatsapp,
         contato_email,
-        imagem_url
+        imagem_url,
+        impulsionar
       } = req.body;
 
       if (!titulo || !descricao || !categoria_chave || !endereco || latitude === undefined || longitude === undefined || !data_inicio || !data_fim) {
@@ -172,6 +173,34 @@ export class PublicationController {
         return;
       }
 
+      const querImpulsionar = impulsionar === true || impulsionar === 'true';
+      const custoTokens = 15.00;
+      let novoSaldoUsuario: number | null = null;
+
+      if (querImpulsionar) {
+        const userRes = await query('SELECT saldo_cash FROM usuarios WHERE id = $1', [req.user.id]);
+        const saldoAtual = parseFloat(userRes.rows[0]?.saldo_cash || '0');
+        if (saldoAtual < custoTokens) {
+          res.status(400).json({
+            error: `Saldo insuficiente de Tokens. Você possui ${saldoAtual.toFixed(2)} Tokens e são necessários ${custoTokens.toFixed(2)} Tokens para impulsionar sua publicação. Faça uma recarga!`,
+            saldoAtual,
+            custoTokens
+          });
+          return;
+        }
+
+        novoSaldoUsuario = saldoAtual - custoTokens;
+        await query('UPDATE usuarios SET saldo_cash = $1, atualizado_em = NOW() WHERE id = $2', [novoSaldoUsuario, req.user.id]);
+        await query(`
+          INSERT INTO transacoes_cash (id_usuario, tipo, valor, descricao)
+          VALUES ($1, 'DESTAQUE_POST', $2, $3)
+        `, [
+          req.user.id,
+          -custoTokens,
+          `Impulsionamento de publicação no ato do cadastro (-${custoTokens.toFixed(2)} Tokens)`
+        ]);
+      }
+
       // Administrador publica já APROVADO; organização vai para fila PENDENTE de moderação
       const statusInicial = req.user.tipo === 'ADMIN' ? 'APROVADO' : 'PENDENTE';
 
@@ -179,9 +208,10 @@ export class PublicationController {
         INSERT INTO publicacoes (
           titulo, descricao, categoria_chave, endereco, bairro, cidade, estado,
           latitude, longitude, data_inicio, data_fim, contato_telefone,
-          contato_whatsapp, contato_email, imagem_url, status, id_autor
+          contato_whatsapp, contato_email, imagem_url, status, id_autor,
+          destaque, destaque_ate
         )
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19)
         RETURNING *;
       `, [
         titulo,
@@ -200,7 +230,9 @@ export class PublicationController {
         contato_email || null,
         imagem_url || null,
         statusInicial,
-        req.user.id
+        req.user.id,
+        querImpulsionar,
+        querImpulsionar ? new Date(Date.now() + 7 * 24 * 60 * 60 * 1000) : null
       ]);
 
       const novaPub = insertRes.rows[0];
@@ -213,10 +245,15 @@ export class PublicationController {
 
       res.status(201).json({
         message: statusInicial === 'PENDENTE'
-          ? 'Publicação enviada com sucesso! Ela passará pela moderação prévia antes de ser disponibilizada aos cidadãos.'
-          : 'Publicação criada e aprovada imediatamente!',
+          ? (querImpulsionar
+              ? 'Publicação enviada com impulsionamento reservado! Após moderação, ela ficará no topo do feed com selo dourado.'
+              : 'Publicação enviada com sucesso! Ela passará pela moderação prévia antes de ser disponibilizada aos cidadãos.')
+          : (querImpulsionar
+              ? '🎉 Publicação criada e impulsionada no topo do feed com sucesso!'
+              : 'Publicação criada e aprovada imediatamente!'),
         publicacao: novaPub,
-        notificacoesDisparadas: resultadoNotificacoes
+        notificacoesDisparadas: resultadoNotificacoes,
+        novoSaldo: novoSaldoUsuario
       });
     } catch (error: any) {
       console.error('Erro ao criar publicação:', error);
@@ -498,8 +535,8 @@ export class PublicationController {
   }
 
   /**
-   * Destacar publicação usando PontoCash (Impulsionamento no topo do feed)
-   * Custa 15 PontoCash por 7 dias de destaque.
+   * Destacar publicação usando Tokens (Impulsionamento no topo do feed)
+   * Custa 15 Tokens por 7 dias de destaque.
    */
   static async destacar(req: AuthRequest, res: Response): Promise<void> {
     try {
@@ -529,23 +566,23 @@ export class PublicationController {
         return;
       }
 
-      const custoCash = 15.00;
+      const custoTokens = 15.00;
 
       // Buscar saldo do usuário
       const userRes = await query('SELECT saldo_cash FROM usuarios WHERE id = $1', [req.user.id]);
       const saldoAtual = parseFloat(userRes.rows[0]?.saldo_cash || '0');
 
-      if (saldoAtual < custoCash) {
+      if (saldoAtual < custoTokens) {
         res.status(400).json({
-          error: `Saldo insuficiente de PontoCash. Você possui ${saldoAtual.toFixed(2)} Cash e são necessários ${custoCash.toFixed(2)} Cash para destacar esta publicação por 7 dias. Faça uma recarga!`,
+          error: `Saldo insuficiente de Tokens. Você possui ${saldoAtual.toFixed(2)} Tokens e são necessários ${custoTokens.toFixed(2)} Tokens para destacar esta publicação por 7 dias. Faça uma recarga!`,
           saldoAtual,
-          custoCash
+          custoTokens
         });
         return;
       }
 
-      // Debitar cash
-      const novoSaldo = saldoAtual - custoCash;
+      // Debitar tokens
+      const novoSaldo = saldoAtual - custoTokens;
       await query('UPDATE usuarios SET saldo_cash = $1, atualizado_em = NOW() WHERE id = $2', [novoSaldo, req.user.id]);
 
       // Registrar transação
@@ -554,7 +591,7 @@ export class PublicationController {
         VALUES ($1, 'DESTAQUE_POST', $2, $3)
       `, [
         req.user.id,
-        -custoCash,
+        -custoTokens,
         `Destaque da publicação #${pub.id} ("${pub.titulo.substring(0, 30)}...") no topo do feed por 7 dias`
       ]);
 
@@ -576,7 +613,7 @@ export class PublicationController {
       });
     } catch (error: any) {
       console.error('Erro ao destacar publicação:', error);
-      res.status(500).json({ error: 'Erro interno ao impulsionar publicação com cash.' });
+      res.status(500).json({ error: 'Erro interno ao impulsionar publicação com tokens.' });
     }
   }
 }

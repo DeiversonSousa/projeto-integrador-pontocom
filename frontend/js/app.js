@@ -328,6 +328,8 @@ function switchView(viewName) {
     loadProfileData();
   } else if (viewName === 'moderacao') {
     loadModerationData();
+  } else if (viewName === 'novapub') {
+    initNovaPubView();
   }
 }
 
@@ -626,7 +628,7 @@ function renderPublicationCard(pub) {
             </button>
           ` : ''}
           ${((isOwner || isAdmin) && !isDestaque) ? `
-            <button class="btn-card-action btn-destacar" onclick="confirmDestacarPublication(${pub.id})" title="Destacar este aviso no topo do feed com PontoCash">
+            <button class="btn-card-action btn-destacar" onclick="confirmDestacarPublication(${pub.id})" title="Destacar este aviso no topo do feed com Tokens">
               ⭐ Destacar
             </button>
           ` : ''}
@@ -871,7 +873,7 @@ async function openDetailsModal(pubId) {
         ` : ''}
         ${((isOwner || isAdmin) && !isDestaque) ? `
           <button onclick="closeDetailsModal(); confirmDestacarPublication(${pub.id})" class="btn-primary" style="background:linear-gradient(135deg, #f59e0b, #d97706); border:none; justify-content:center;">
-            ⭐ Impulsionar / Destacar Post (15 Cash)
+            ⭐ Impulsionar / Destacar Post (15 Tokens)
           </button>
         ` : ''}
       </div>
@@ -1165,6 +1167,65 @@ function previewImage(url) {
   }
 }
 
+function toggleBoostSelection(isBoost) {
+  const normalCard = document.getElementById('optionPubNormalCard');
+  const boostCard = document.getElementById('optionPubBoostCard');
+  const normalRadio = document.getElementById('modoPubNormal');
+  const boostRadio = document.getElementById('modoPubBoost');
+  const submitText = document.getElementById('btnSubmitPubText');
+  const submitIcon = document.getElementById('btnSubmitPubIcon');
+  const warningBox = document.getElementById('boostBalanceWarning');
+  const balanceNotice = document.getElementById('boostBalanceNotice');
+  const balanceValEl = document.getElementById('newPubTokenBalance');
+
+  const saldo = parseFloat(state.user?.saldo_cash || '0');
+  if (balanceValEl) balanceValEl.innerText = saldo.toFixed(2);
+
+  if (isBoost) {
+    if (normalRadio) normalRadio.checked = false;
+    if (boostRadio) boostRadio.checked = true;
+    if (normalCard) normalCard.classList.remove('active');
+    if (boostCard) {
+      boostCard.classList.add('active');
+      boostCard.classList.add('boost-active');
+    }
+    if (submitText) submitText.innerText = 'Publicar com Impulso (15 Tokens)';
+    if (submitIcon) submitIcon.innerText = '⭐';
+    if (warningBox) warningBox.style.display = 'flex';
+
+    if (saldo < 15) {
+      if (warningBox) warningBox.classList.add('insufficient');
+      if (balanceNotice) {
+        balanceNotice.innerHTML = `⚠️ Saldo insuficiente para impulsionar. <a href="javascript:void(0)" onclick="openWalletModal()" style="color:#2563eb; font-weight:700; text-decoration:underline;">Recarregar Tokens</a>`;
+      }
+    } else {
+      if (warningBox) warningBox.classList.remove('insufficient');
+      if (balanceNotice) {
+        balanceNotice.innerHTML = `<span style="color:#059669; font-weight:700;">✓ Saldo suficiente para impulsionamento (15 Tokens).</span>`;
+      }
+    }
+  } else {
+    if (normalRadio) normalRadio.checked = true;
+    if (boostRadio) boostRadio.checked = false;
+    if (normalCard) normalCard.classList.add('active');
+    if (boostCard) {
+      boostCard.classList.remove('active');
+      boostCard.classList.remove('boost-active');
+    }
+    if (submitText) submitText.innerText = 'Publicar Normalmente';
+    if (submitIcon) submitIcon.innerText = '🚀';
+    if (warningBox) warningBox.style.display = 'none';
+  }
+}
+
+function initNovaPubView() {
+  toggleBoostSelection(false);
+  const balanceValEl = document.getElementById('newPubTokenBalance');
+  if (balanceValEl) {
+    balanceValEl.innerText = parseFloat(state.user?.saldo_cash || '0').toFixed(2);
+  }
+}
+
 async function submitNewPublication(e) {
   e.preventDefault();
   if (!state.token) {
@@ -1186,6 +1247,21 @@ async function submitNewPublication(e) {
     return;
   }
 
+  const isBoost = document.getElementById('modoPubBoost')?.checked || false;
+  if (isBoost) {
+    const saldo = parseFloat(state.user?.saldo_cash || '0');
+    if (saldo < 15) {
+      const recarregar = await showCustomDialog({
+        title: 'Saldo Insuficiente de Tokens',
+        message: `Você possui ${saldo.toFixed(2)} Tokens e são necessários 15.00 Tokens para impulsionar esta publicação no topo do feed. Deseja recarregar agora?`,
+        confirmText: 'Recarregar Tokens',
+        cancelText: 'Cancelar'
+      });
+      if (recarregar) openWalletModal();
+      return;
+    }
+  }
+
   try {
     const res = await fetch(`${state.apiBase}/publicacoes`, {
       method: 'POST',
@@ -1203,7 +1279,8 @@ async function submitNewPublication(e) {
         contato_whatsapp,
         imagem_url,
         latitude: state.coords.lat,
-        longitude: state.coords.lng
+        longitude: state.coords.lng,
+        impulsionar: isBoost
       })
     });
 
@@ -1211,9 +1288,18 @@ async function submitNewPublication(e) {
     if (!res.ok) throw new Error(data.error);
 
     showToast(data.message, 'success');
+    if (isBoost) playNotificationChime();
+
+    if (data.novoSaldo !== undefined && data.novoSaldo !== null) {
+      state.user.saldo_cash = data.novoSaldo;
+      localStorage.setItem('user', JSON.stringify(state.user));
+      updateCashUI();
+    }
+
     document.getElementById('formNewPub').reset();
     document.getElementById('imagePreviewContainer').style.display = 'none';
     setDefaultDates();
+    toggleBoostSelection(false);
     switchView('feed');
   } catch (error) {
     showToast(`Erro ao publicar: ${error.message}`, 'error');
@@ -1252,15 +1338,15 @@ async function loadProfileData() {
     const percent = Math.min(100, Math.round((quota.recebidasHoje / quota.limiteDiario) * 100));
 
     document.getElementById('quotaStats').innerHTML = `
-      <div style="background:#f8fafc; padding:12px; border-radius:8px; border:1px solid #e2e8f0; margin-top:10px;">
-        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:5px;">
-          <strong style="font-size:0.82rem; color:#0f172a;">Consumo da Cota Diária Anti-Spam:</strong>
-          <span style="font-size:0.78rem; font-weight:700; color:#004fb0;">${quota.recebidasHoje} de ${quota.limiteDiario}</span>
+      <div class="quota-stats-card">
+        <div class="quota-stats-header">
+          <strong>Consumo da Cota Diária Anti-Spam:</strong>
+          <span>${quota.recebidasHoje} de ${quota.limiteDiario}</span>
         </div>
-        <div style="width:100%; height:7px; background:#e2e8f0; border-radius:4px; overflow:hidden;">
-          <div style="width:${percent}%; height:100%; background:${percent >= 100 ? '#ef4444' : '#10b981'}; transition:width 0.4s;"></div>
+        <div class="quota-bar-wrap">
+          <div class="quota-bar-fill" style="width:${percent}%; background:${percent >= 100 ? '#ef4444' : '#10b981'};"></div>
         </div>
-        <div style="font-size:0.73rem; color:#64748b; margin-top:5px;">
+        <div class="quota-stats-footer">
           ${quota.restantesHoje > 0 
             ? `Você ainda pode receber <strong>${quota.restantesHoje}</strong> notificações hoje sem sobrecarga.` 
             : '<span style="color:#ef4444; font-weight:700;">Limite diário atingido. O filtro anti-spam pausou novos envios push até amanhã.</span>'}
@@ -1692,7 +1778,7 @@ function showToast(message, type = 'info') {
 }
 
 // ==========================================================================
-// SISTEMA DE CASH & CARTEIRA PONTOCASH
+// SISTEMA DE TOKENS & CARTEIRA DE TOKENS
 // ==========================================================================
 async function updateCashUI() {
   if (!state.token || !state.user) return;
@@ -1702,19 +1788,22 @@ async function updateCashUI() {
     });
     if (res.ok) {
       const data = await res.json();
-      state.user.saldo_cash = data.saldoCash;
+      const saldo = data.saldoTokens !== undefined ? data.saldoTokens : data.saldoCash;
+      state.user.saldo_cash = saldo;
       localStorage.setItem('user', JSON.stringify(state.user));
       const cashValEl = document.getElementById('headerCashVal');
-      if (cashValEl) cashValEl.innerText = parseFloat(data.saldoCash).toFixed(2);
+      if (cashValEl) cashValEl.innerText = parseFloat(saldo).toFixed(2);
+      const newPubTokenEl = document.getElementById('newPubTokenBalance');
+      if (newPubTokenEl) newPubTokenEl.innerText = parseFloat(saldo).toFixed(2);
     }
   } catch (e) {
-    console.warn('Erro ao atualizar saldo de cash:', e);
+    console.warn('Erro ao atualizar saldo de tokens:', e);
   }
 }
 
 async function openWalletModal() {
   if (!state.token) {
-    showToast('Conecte-se para acessar sua carteira PontoCash.', 'info');
+    showToast('Conecte-se para acessar sua carteira de Tokens.', 'info');
     openAuthModal();
     return;
   }
@@ -1736,12 +1825,13 @@ async function openWalletModal() {
     const data = await res.json();
     if (!res.ok) throw new Error(data.error);
 
-    balanceEl.innerText = parseFloat(data.saldoCash || 0).toFixed(2);
-    state.user.saldo_cash = data.saldoCash;
+    const saldo = data.saldoTokens !== undefined ? data.saldoTokens : (data.saldoCash || 0);
+    balanceEl.innerText = parseFloat(saldo).toFixed(2);
+    state.user.saldo_cash = saldo;
     localStorage.setItem('user', JSON.stringify(state.user));
 
     const cashValEl = document.getElementById('headerCashVal');
-    if (cashValEl) cashValEl.innerText = parseFloat(data.saldoCash).toFixed(2);
+    if (cashValEl) cashValEl.innerText = parseFloat(saldo).toFixed(2);
 
     const transacoes = data.transacoes || [];
     if (transacoes.length === 0) {
@@ -1759,7 +1849,7 @@ async function openWalletModal() {
             <small style="color:var(--text-subtle); font-size:0.7rem;">${new Date(t.criado_em).toLocaleDateString('pt-BR')} ${new Date(t.criado_em).toLocaleTimeString('pt-BR', { hour:'2-digit', minute:'2-digit' })}</small>
           </div>
           <div class="wallet-history-val ${isPos ? 'positive' : 'negative'}">
-            ${isPos ? '+' : ''}${valNum.toFixed(2)} Cash
+            ${isPos ? '+' : ''}${valNum.toFixed(2)} Tokens
           </div>
         </div>
       `;
@@ -1792,11 +1882,14 @@ async function executeBuyCash(quantia) {
 
     showToast(data.message, 'success');
     playNotificationChime();
-    state.user.saldo_cash = data.saldoCash;
+    const saldo = data.saldoTokens !== undefined ? data.saldoTokens : data.saldoCash;
+    state.user.saldo_cash = saldo;
     localStorage.setItem('user', JSON.stringify(state.user));
 
     const headerVal = document.getElementById('headerCashVal');
-    if (headerVal) headerVal.innerText = parseFloat(data.saldoCash).toFixed(2);
+    if (headerVal) headerVal.innerText = parseFloat(saldo).toFixed(2);
+    const newPubTokenEl = document.getElementById('newPubTokenBalance');
+    if (newPubTokenEl) newPubTokenEl.innerText = parseFloat(saldo).toFixed(2);
 
     openWalletModal();
   } catch (err) {
@@ -1812,9 +1905,9 @@ async function confirmDestacarPublication(pubId) {
   }
 
   const confirmou = await showCustomDialog({
-    title: '⭐ Impulsionar Publicação com PontoCash',
-    message: 'Deseja destacar esta publicação com o selo dourado no topo do feed por 7 dias? Custo: 15.00 PontoCash.',
-    confirmText: 'Confirmar Destaque (15 Cash)',
+    title: '⭐ Impulsionar Publicação com Tokens',
+    message: 'Deseja destacar esta publicação com o selo dourado no topo do feed por 7 dias? Custo: 15.00 Tokens.',
+    confirmText: 'Confirmar Destaque (15 Tokens)',
     cancelText: 'Cancelar'
   });
 
@@ -1830,7 +1923,7 @@ async function confirmDestacarPublication(pubId) {
     if (!res.ok) {
       if (data.saldoAtual !== undefined) {
         const querRecarregar = await showCustomDialog({
-          title: 'Saldo Insuficiente de PontoCash',
+          title: 'Saldo Insuficiente de Tokens',
           message: data.error,
           confirmText: 'Recarregar Agora',
           cancelText: 'Cancelar'
