@@ -91,11 +91,11 @@ body.modal-open {
 .header-inner {
   max-width: 1280px;
   margin: 0 auto;
-  padding: 10px 16px;
+  padding: 8px 16px;
   display: flex;
   justify-content: space-between;
   align-items: center;
-  gap: 12px;
+  gap: 16px;
 }
 
 .logo-container {
@@ -104,7 +104,7 @@ body.modal-open {
   gap: 10px;
   cursor: pointer;
   user-select: none;
-  min-width: 0;
+  flex-shrink: 0;
 }
 
 .brand-logo-img {
@@ -118,31 +118,11 @@ body.modal-open {
 .logo-main-row {
   display: flex;
   align-items: center;
-  gap: 8px;
 }
 
 .logo-accent {
   color: #38bdf8;
   font-weight: 800;
-}
-
-.logo-tagline {
-  font-size: 0.68rem;
-  letter-spacing: 0.2px;
-  opacity: 0.88;
-  display: block;
-}
-
-.logo-badge {
-  background: white;
-  color: var(--primary);
-  font-weight: 800;
-  padding: 3px 7px;
-  border-radius: var(--radius-sm);
-  font-size: 0.7rem;
-  letter-spacing: 0.5px;
-  box-shadow: var(--shadow-xs);
-  flex-shrink: 0;
 }
 
 .logo-title {
@@ -152,20 +132,37 @@ body.modal-open {
 .logo-title h1 {
   font-size: 1.15rem;
   font-weight: 800;
-  line-height: 1.2;
+  line-height: 1.15;
   letter-spacing: -0.4px;
   white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
 }
 
-.logo-title span {
-  font-size: 0.72rem;
-  opacity: 0.85;
-  display: block;
+.logo-subline {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 2px;
+}
+
+.logo-badge {
+  background: white;
+  color: var(--primary);
+  font-weight: 800;
+  padding: 1px 6px;
+  border-radius: var(--radius-sm);
+  font-size: 0.62rem;
+  letter-spacing: 0.4px;
+  box-shadow: var(--shadow-xs);
+  flex-shrink: 0;
+  line-height: 1.3;
+  display: inline-block;
+}
+
+.logo-tagline {
+  font-size: 0.68rem;
+  letter-spacing: 0.2px;
+  opacity: 0.88;
   white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
 }
 
 /* Desktop Navigation (Abas no Topo) */
@@ -173,6 +170,9 @@ body.modal-open {
   display: none;
   align-items: center;
   gap: 6px;
+  flex-shrink: 0;
+  margin-left: 12px;
+  margin-right: auto;
 }
 
 .desktop-nav .nav-item {
@@ -182,17 +182,20 @@ body.modal-open {
   background: rgba(255, 255, 255, 0.12);
   color: rgba(255, 255, 255, 0.9);
   border: 1px solid rgba(255, 255, 255, 0.15);
-  padding: 7px 14px;
+  padding: 6px 13px;
   border-radius: var(--radius-full);
-  font-size: 0.84rem;
+  font-size: 0.82rem;
   font-weight: 600;
   cursor: pointer;
   transition: all 0.2s ease;
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 
 .desktop-nav .nav-item svg {
   width: 16px;
   height: 16px;
+  flex-shrink: 0;
 }
 
 .desktop-nav .nav-item:hover {
@@ -286,6 +289,30 @@ body.modal-open {
   background: var(--danger);
 }
 
+/* Ajustes para telas médias e notebooks (768px a 1180px) */
+@media (min-width: 768px) and (max-width: 1180px) {
+  .header-inner {
+    padding: 8px 12px;
+    gap: 10px;
+  }
+  .desktop-nav {
+    margin-left: 8px;
+    gap: 4px;
+  }
+  .desktop-nav .nav-item {
+    padding: 5px 9px;
+    font-size: 0.76rem;
+    gap: 4px;
+  }
+  .desktop-nav .nav-item svg {
+    width: 14px;
+    height: 14px;
+  }
+  .logo-tagline {
+    display: none;
+  }
+}
+
 /* Regras de Cabeçalho e Ações para Telas Pequenas */
 @media (max-width: 640px) {
   .header-inner {
@@ -304,12 +331,8 @@ body.modal-open {
     font-size: 0.95rem;
   }
   .logo-badge {
-    padding: 2px 5px;
-    font-size: 0.6rem;
-  }
-  /* O Dark Mode fica no menu de configurações do usuário, liberando espaço no cabeçalho */
-  #themeToggleBtn {
-    display: none;
+    padding: 1px 5px;
+    font-size: 0.58rem;
   }
   .cash-pill {
     padding: 3px 8px;
@@ -359,8 +382,8 @@ body.modal-open {
   .logo-title h1 {
     font-size: 0.88rem;
   }
-  .logo-badge {
-    display: none; /* Oculta badge institucional em aparelhos menores para zero quebra de linha */
+  .logo-subline {
+    display: none; /* Oculta subline institucional em aparelhos menores para zero quebra de linha */
   }
   .cash-pill {
     padding: 2px 6px;
