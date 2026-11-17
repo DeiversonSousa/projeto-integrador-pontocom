@@ -286,7 +286,7 @@ body.modal-open {
   background: var(--danger);
 }
 
-/* Regras de Cabeçalho para Telas Pequenas */
+/* Regras de Cabeçalho e Ações para Telas Pequenas */
 @media (max-width: 640px) {
   .header-inner {
     padding: 8px 10px;
@@ -301,24 +301,80 @@ body.modal-open {
     display: none;
   }
   .logo-title h1 {
-    font-size: 0.98rem;
+    font-size: 0.95rem;
   }
   .logo-badge {
     padding: 2px 5px;
-    font-size: 0.62rem;
+    font-size: 0.6rem;
+  }
+  /* O Dark Mode fica no menu de configurações do usuário, liberando espaço no cabeçalho */
+  #themeToggleBtn {
+    display: none;
+  }
+  .cash-pill {
+    padding: 3px 8px;
+    font-size: 0.74rem;
+    gap: 4px;
+  }
+  .cash-lbl {
+    display: none; /* Exibe somente "🪙 50.00" economizando espaço horizontal */
   }
   .ws-label {
     display: none;
   }
   .ws-indicator {
     padding: 5px;
+    min-width: 22px;
+    min-height: 22px;
+    justify-content: center;
   }
   .user-pill {
     padding: 3px 8px;
     font-size: 0.74rem;
+    gap: 4px;
+    max-width: 110px;
+  }
+  .user-pill span:first-child {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
   .user-pill .badge {
     display: none;
+  }
+}
+
+@media (max-width: 380px) {
+  .header-inner {
+    padding: 6px 8px;
+    gap: 4px;
+  }
+  .logo-container {
+    gap: 6px;
+  }
+  .brand-logo-img {
+    width: 24px;
+    height: 24px;
+  }
+  .logo-title h1 {
+    font-size: 0.88rem;
+  }
+  .logo-badge {
+    display: none; /* Oculta badge institucional em aparelhos menores para zero quebra de linha */
+  }
+  .cash-pill {
+    padding: 2px 6px;
+    font-size: 0.7rem;
+  }
+  .user-pill {
+    padding: 2px 6px;
+    font-size: 0.7rem;
+    max-width: 85px;
+  }
+  .user-pill-btn-logout {
+    width: 16px;
+    height: 16px;
+    font-size: 0.6rem;
   }
 }
 
@@ -1401,6 +1457,89 @@ body.modal-open {
   margin-bottom: 10px;
 }
 
+/* Seletor de Tema Visual no Perfil */
+.theme-choice-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin-top: 10px;
+}
+
+.btn-theme-choice {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  border-radius: var(--radius);
+  border: 2px solid var(--border);
+  background: white;
+  color: var(--text-main);
+  cursor: pointer;
+  text-align: left;
+  transition: all 0.2s ease;
+  position: relative;
+  width: 100%;
+}
+
+.btn-theme-choice:hover {
+  border-color: var(--primary);
+  background: var(--bg-page);
+  transform: translateY(-1px);
+}
+
+.btn-theme-choice.active {
+  border-color: var(--primary);
+  background: rgba(0, 79, 176, 0.08);
+  box-shadow: 0 0 0 1px var(--primary);
+}
+
+.theme-choice-icon {
+  font-size: 1.6rem;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+.theme-choice-text {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+}
+
+.theme-choice-text strong {
+  font-size: 0.88rem;
+  color: var(--dark);
+  font-weight: 700;
+}
+
+.theme-choice-text small {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  margin-top: 2px;
+  line-height: 1.25;
+}
+
+.theme-choice-radio {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  border: 2px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.75rem;
+  font-weight: 800;
+  color: transparent;
+  flex-shrink: 0;
+  transition: all 0.2s;
+}
+
+.btn-theme-choice.active .theme-choice-radio {
+  background: var(--primary);
+  border-color: var(--primary);
+  color: #ffffff;
+}
+
 .checkbox-grid {
   display: flex;
   flex-direction: column;
@@ -2054,6 +2193,41 @@ body.modal-open {
 [data-theme="dark"] .wallet-balance-card {
   background: linear-gradient(135deg, #1e3a8a 0%, #1e293b 100%);
   border-color: #3b82f6;
+}
+
+[data-theme="dark"] .btn-theme-choice {
+  background: #1e293b;
+  border-color: #334155;
+  color: #f1f5f9;
+}
+
+[data-theme="dark"] .btn-theme-choice:hover {
+  background: #253347;
+  border-color: #60a5fa;
+}
+
+[data-theme="dark"] .btn-theme-choice.active {
+  border-color: #60a5fa;
+  background: rgba(96, 165, 250, 0.15);
+  box-shadow: 0 0 0 1px #60a5fa;
+}
+
+[data-theme="dark"] .theme-choice-text strong {
+  color: #f8fafc;
+}
+
+[data-theme="dark"] .theme-choice-text small {
+  color: #94a3b8;
+}
+
+[data-theme="dark"] .theme-choice-radio {
+  border-color: #475569;
+}
+
+[data-theme="dark"] .btn-theme-choice.active .theme-choice-radio {
+  background: #3b82f6;
+  border-color: #3b82f6;
+  color: #ffffff;
 }
 
 /* ==========================================================================
@@ -2760,6 +2934,153 @@ body.modal-open {
 
   .recharge-buttons-grid {
     grid-template-columns: 1fr;
+  }
+}
+
+/* ==========================================================================
+   RESPONSIVIDADE GERAL DE CONTEÚDO PARA DISPOSITIVOS MÓVEIS (<= 640px)
+   ========================================================================== */
+@media (max-width: 640px) {
+  .main-content {
+    padding: 10px 8px 75px;
+  }
+
+  .modal-overlay {
+    padding: 10px;
+  }
+
+  .modal-card {
+    width: 100%;
+    max-width: 100%;
+    padding: 16px 14px;
+    max-height: 92vh;
+  }
+
+  .form-row {
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
+}
+
+/* Celulares padrão e compactos (<= 480px) */
+@media (max-width: 480px) {
+  .theme-choice-grid {
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
+
+  .btn-theme-choice {
+    padding: 10px 12px;
+  }
+
+  .pub-card-image {
+    height: 150px;
+  }
+
+  .pub-card-body {
+    padding: 12px;
+  }
+
+  .pub-card-actions {
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+
+  .pub-card-actions .btn {
+    flex: 1;
+    min-width: 45%;
+    font-size: 0.76rem;
+    padding: 7px 8px;
+  }
+
+  .search-input-wrap input {
+    font-size: 0.82rem;
+    padding: 8px 32px 8px 34px;
+  }
+
+  .radius-control-row {
+    padding: 10px;
+  }
+
+  .btn-preset {
+    font-size: 0.68rem;
+    padding: 4px 0;
+  }
+
+  .gps-location-pill {
+    font-size: 0.72rem;
+    padding: 6px 8px;
+  }
+
+  .bottom-nav .nav-item {
+    font-size: 0.6rem;
+    padding: 3px 1px;
+  }
+
+  .bottom-nav .nav-item svg {
+    width: 18px;
+    height: 18px;
+  }
+}
+
+/* Aparelhos menores (<= 380px e 320px como iPhone SE / Galaxy Mini) */
+@media (max-width: 380px) {
+  .demo-buttons {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 4px;
+  }
+
+  .btn-demo {
+    padding: 6px 4px;
+    gap: 4px;
+  }
+
+  .btn-demo-avatar {
+    font-size: 0.95rem;
+  }
+
+  .btn-demo-info strong {
+    font-size: 0.68rem;
+  }
+
+  .btn-demo-info small {
+    font-size: 0.58rem;
+  }
+
+  .section-title-bar h2 {
+    font-size: 1rem;
+  }
+
+  .section-title-bar p {
+    font-size: 0.72rem;
+  }
+
+  .pub-card-image {
+    height: 140px;
+  }
+
+  .pub-card-title {
+    font-size: 0.9rem;
+  }
+
+  .badge-category {
+    font-size: 0.62rem;
+    padding: 2px 6px;
+  }
+
+  .badge-destaque {
+    font-size: 0.62rem;
+    padding: 2px 6px;
+  }
+
+  .bottom-nav .nav-item {
+    font-size: 0.55rem;
+    letter-spacing: -0.3px;
+  }
+
+  .bottom-nav .nav-item svg {
+    width: 16px;
+    height: 16px;
   }
 }
 

@@ -135,7 +135,7 @@
     </section>
 
     <!-- Barra de Controles Geoespaciais (Busca, Raio em KM e GPS) -->
-    <section class="controls-card">
+    <section class="controls-card" id="controlsCard">
       <div class="search-row">
         <div class="search-input-wrap">
           <span class="search-icon">🔍</span>
@@ -332,6 +332,30 @@
               <h4 id="profNome">Lucas Silva</h4>
               <p id="profEmail">morador@cidadao.com</p>
               <span id="profTipo" class="badge-role">CIDADAO</span>
+            </div>
+          </div>
+
+          <!-- Configuração de Tema Visual (Dark Mode / Light Mode) -->
+          <div class="settings-section">
+            <h4 class="settings-title">🎨 Aparência & Tema Visual</h4>
+            <p class="settings-desc">Escolha entre o Modo Claro ou o Modo Escuro (Dark Mode) para sua experiência:</p>
+            <div class="theme-choice-grid">
+              <button type="button" class="btn-theme-choice" id="btnThemeLight" onclick="setAppTheme('light')">
+                <span class="theme-choice-icon">☀️</span>
+                <span class="theme-choice-text">
+                  <strong>Modo Claro</strong>
+                  <small>Fundo claro para navegação diurna</small>
+                </span>
+                <span class="theme-choice-radio" id="radioThemeLight">✓</span>
+              </button>
+              <button type="button" class="btn-theme-choice" id="btnThemeDark" onclick="setAppTheme('dark')">
+                <span class="theme-choice-icon">🌙</span>
+                <span class="theme-choice-text">
+                  <strong>Modo Escuro</strong>
+                  <small>Tons escuros e menor cansaço visual</small>
+                </span>
+                <span class="theme-choice-radio" id="radioThemeDark">✓</span>
+              </button>
             </div>
           </div>
 

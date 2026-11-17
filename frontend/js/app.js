@@ -54,21 +54,36 @@ function initTheme() {
   const savedTheme = localStorage.getItem('ponto_theme') || 'light';
   document.documentElement.setAttribute('data-theme', savedTheme);
   updateThemeIcon(savedTheme);
+  updateProfileThemeUI(savedTheme);
+}
+
+function setAppTheme(theme) {
+  document.documentElement.setAttribute('data-theme', theme);
+  localStorage.setItem('ponto_theme', theme);
+  updateThemeIcon(theme);
+  updateProfileThemeUI(theme);
+  showToast(`Modo ${theme === 'dark' ? 'Escuro 🌙' : 'Claro ☀️'} ativado!`, 'info');
 }
 
 function toggleDarkMode() {
   const currentTheme = document.documentElement.getAttribute('data-theme') || 'light';
   const nextTheme = currentTheme === 'dark' ? 'light' : 'dark';
-  document.documentElement.setAttribute('data-theme', nextTheme);
-  localStorage.setItem('ponto_theme', nextTheme);
-  updateThemeIcon(nextTheme);
-  showToast(`Modo ${nextTheme === 'dark' ? 'Escuro 🌙' : 'Claro ☀️'} ativado!`, 'info');
+  setAppTheme(nextTheme);
 }
 
 function updateThemeIcon(theme) {
   const iconEl = document.getElementById('themeToggleIcon');
   if (iconEl) {
     iconEl.innerText = theme === 'dark' ? '☀️' : '🌙';
+  }
+}
+
+function updateProfileThemeUI(theme) {
+  const btnLight = document.getElementById('btnThemeLight');
+  const btnDark = document.getElementById('btnThemeDark');
+  if (btnLight && btnDark) {
+    btnLight.classList.toggle('active', theme === 'light');
+    btnDark.classList.toggle('active', theme === 'dark');
   }
 }
 
@@ -284,6 +299,12 @@ function setupNavigation() {
 
 function switchView(viewName) {
   state.activeView = viewName;
+
+  // O raio de alcance e controles geoespaciais devem aparecer somente quando o usuário estiver em feed e mapa
+  const controlsCard = document.getElementById('controlsCard');
+  if (controlsCard) {
+    controlsCard.style.display = (viewName === 'feed' || viewName === 'mapa') ? 'block' : 'none';
+  }
 
   document.querySelectorAll('.view-section').forEach(s => s.classList.remove('active'));
   const targetSection = document.getElementById(`view-${viewName}`);
@@ -1219,6 +1240,9 @@ async function loadProfileData() {
   document.getElementById('chkServico').checked = cats.includes('SERVICO');
   document.getElementById('chkPromocao').checked = cats.includes('PROMOCAO');
   document.getElementById('chkSocial').checked = cats.includes('SOCIAL');
+
+  const currentTheme = localStorage.getItem('ponto_theme') || 'light';
+  updateProfileThemeUI(currentTheme);
 
   try {
     const res = await fetch(`${state.apiBase}/usuarios/quota`, {
