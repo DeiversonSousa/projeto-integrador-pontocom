@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import { query } from '../config/db';
 import { AuthRequest } from '../middlewares/authMiddleware';
 import { GeoService } from '../services/geoService';
+import { SocketService } from '../services/socketService';
 
 export class PublicationController {
   /**
@@ -558,11 +559,10 @@ export class PublicationController {
       }
 
       const pub = checkRes.rows[0];
-      const isAdmin = req.user.tipo === 'ADMIN';
-      const isAuthor = pub.id_autor === req.user.id;
-
-      if (!isAdmin && !isAuthor) {
-        res.status(403).json({ error: 'Apenas o autor da publicação ou administradores podem destacá-la.' });
+      const hoje = new Date();
+      const jaDestacado = pub.destaque === true && (!pub.destaque_ate || new Date(pub.destaque_ate) > hoje);
+      if (jaDestacado) {
+        res.status(400).json({ error: 'Esta publicação já está em destaque no topo do feed com o selo dourado!' });
         return;
       }
 
@@ -605,6 +605,13 @@ export class PublicationController {
         WHERE id = $1
         RETURNING *;
       `, [id]);
+
+      // Notificar todos os clientes conectados via WebSocket para atualizar o feed
+      SocketService.transmitirGlobal('atualizar_feed', {
+        acao: 'destaque',
+        idPublicacao: id,
+        titulo: pub.titulo
+      });
 
       res.json({
         message: '🎉 Publicação impulsionada com sucesso! Ela agora aparecerá com o selo dourado de DESTAQUE no topo do feed da sua região pelos próximos 7 dias.',

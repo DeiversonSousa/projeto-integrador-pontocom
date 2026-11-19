@@ -187,23 +187,17 @@ function mostrarNotificacaoPush(notif) {
   const icone = icones[notif.categoria_chave] || '📢';
 
   const banner = document.createElement('div');
-  banner.style.cssText = `
-    position: fixed; top: 68px; right: 12px; z-index: 9999;
-    background: white; border-left: 5px solid ${cor};
-    border-radius: 10px; padding: 12px 16px;
-    max-width: 340px; box-shadow: 0 8px 25px rgba(0,0,0,0.18);
-    animation: toastSlideUp 0.3s ease; cursor: pointer;
-    display: flex; flex-direction: column; gap: 4px; border: 1px solid #e2e8f0;
-  `;
+  banner.className = 'push-notification-banner';
+  banner.style.borderLeftColor = cor;
   banner.innerHTML = `
     <div style="display:flex; align-items:center; justify-content:space-between; gap:6px;">
       <span style="font-weight:800; color:${cor}; font-size:0.78rem; text-transform:uppercase;">
         ${icone} Aviso Próximo a Você
       </span>
-      <span style="font-size:0.7rem; color:#94a3b8;">${notif.horario || 'Agora'}</span>
+      <span class="push-meta" style="font-size:0.7rem; color:#94a3b8;">${notif.horario || 'Agora'}</span>
     </div>
-    <div style="font-size:0.9rem; font-weight:700; color:#0f172a; line-height:1.25;">${notif.titulo}</div>
-    <div style="font-size:0.76rem; color:#64748b; margin-top:2px;">
+    <div class="push-title" style="font-size:0.9rem; font-weight:700; color:#0f172a; line-height:1.25;">${escapeHtml(notif.titulo)}</div>
+    <div class="push-meta" style="font-size:0.76rem; color:#64748b; margin-top:2px;">
       📍 a ${notif.distancia_km} km · Notificação ${notif.notificacoes_hoje || 1}/${notif.limite_diario || 5} de hoje
     </div>
     <div style="font-size:0.72rem; color:#004fb0; font-weight:600; margin-top:2px;">Toque para ver detalhes completos →</div>
@@ -627,11 +621,15 @@ function renderPublicationCard(pub) {
               🗑️ Excluir
             </button>
           ` : ''}
-          ${((isOwner || isAdmin) && !isDestaque) ? `
-            <button class="btn-card-action btn-destacar" onclick="confirmDestacarPublication(${pub.id})" title="Destacar este aviso no topo do feed com Tokens">
+          ${!isDestaque ? `
+            <button class="btn-card-action btn-destacar" onclick="confirmDestacarPublication(${pub.id})" title="Destacar este aviso no topo do feed com 15 Tokens">
               ⭐ Destacar
             </button>
-          ` : ''}
+          ` : `
+            <span class="btn-card-action btn-destacado-badge" title="Publicação em destaque no topo do feed">
+              ⭐ No Topo
+            </span>
+          `}
           <button class="btn-outline" onclick="sharePublication(${pub.id}, '${encodeURIComponent(pub.titulo)}')" title="Compartilhar">
             🔗
           </button>
@@ -871,11 +869,15 @@ async function openDetailsModal(pubId) {
             </button>
           </div>
         ` : ''}
-        ${((isOwner || isAdmin) && !isDestaque) ? `
-          <button onclick="closeDetailsModal(); confirmDestacarPublication(${pub.id})" class="btn-primary" style="background:linear-gradient(135deg, #f59e0b, #d97706); border:none; justify-content:center;">
+        ${!isDestaque ? `
+          <button onclick="closeDetailsModal(); confirmDestacarPublication(${pub.id})" class="btn-primary" style="background:linear-gradient(135deg, #f59e0b, #d97706); border:none; justify-content:center; color:#ffffff; font-weight:700;">
             ⭐ Impulsionar / Destacar Post (15 Tokens)
           </button>
-        ` : ''}
+        ` : `
+          <div style="background: rgba(245, 158, 11, 0.15); border: 1px solid #f59e0b; border-radius: 8px; padding: 10px 14px; font-size: 0.85rem; font-weight: 700; color: #d97706; text-align: center;">
+            ⭐ Esta publicação está ativa no topo com o selo de Destaque
+          </div>
+        `}
       </div>
 
       <div style="border-top:1px solid #e2e8f0; padding-top:10px; display:flex; justify-content:space-between; align-items:center;">
@@ -1940,8 +1942,11 @@ async function confirmDestacarPublication(pubId) {
     localStorage.setItem('user', JSON.stringify(state.user));
     const headerVal = document.getElementById('headerCashVal');
     if (headerVal) headerVal.innerText = parseFloat(data.novoSaldo).toFixed(2);
+    const newPubTokenEl = document.getElementById('newPubTokenBalance');
+    if (newPubTokenEl) newPubTokenEl.innerText = parseFloat(data.novoSaldo).toFixed(2);
 
-    loadFeed();
+    await updateCashUI();
+    await loadFeed();
   } catch (err) {
     showToast(`Erro ao destacar: ${err.message}`, 'error');
   }
